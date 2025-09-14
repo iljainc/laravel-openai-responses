@@ -29,7 +29,9 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": true
+            "providers": [
+                "Idpromogroup\\LaravelOpenaiResponses\\LaravelOpenaiResponsesServiceProvider"
+            ]
         }
     },
     "minimum-stability": "stable",
