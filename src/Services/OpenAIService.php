@@ -24,6 +24,7 @@ class OpenAIService
     private ?float $temperature = null;
     private ?string $conversationUser = null;
     private ?string $conversationId = null;
+    private array $attachments = [];
 
     public function __construct(string $externalKey, string $message)
     {
@@ -68,6 +69,31 @@ class OpenAIService
     public function setConversation(string $user): self
     {
         $this->conversationUser = $user;
+        return $this;
+    }
+
+    public function attachFile(string $fileId, array $tools = [['type' => 'file_search']]): self
+    {
+        $this->attachments[] = ['file_id' => $fileId, 'tools' => $tools];
+        return $this;
+    }
+
+    public function attachFileIds(array $fileIds, array $tools = [['type' => 'file_search']]): self
+    {
+        foreach ($fileIds as $fid) {
+            $this->attachments[] = ['file_id' => $fid, 'tools' => $tools];
+        }
+        return $this;
+    }
+
+    /** Удобный хелпер: загрузить локальный файл и тут же прикрепить */
+    public function attachLocalFile(string $absolutePath, array $tools = [['type' => 'file_search']]): self
+    {
+        $api = app(OpenAIAPIService::class);
+        $resp = $api->uploadFile($absolutePath);
+        if (!empty($resp['id'])) {
+            $this->attachments[] = ['file_id' => $resp['id'], 'tools' => $tools];
+        }
         return $this;
     }
 
@@ -253,6 +279,26 @@ class OpenAIService
                 // Already array of tools or empty
                 $data['tools'] = $this->tools;
             }
+        }
+
+        // Add attachments if present
+        if (!empty($this->attachments)) {
+            // гарантируем наличие инструмента чтения файлов
+            $hasFileSearch = false;
+            foreach ($this->tools as $t) {
+                if (($t['type'] ?? null) === 'file_search') { $hasFileSearch = true; break; }
+            }
+            if (!$hasFileSearch) {
+                $this->tools[] = ['type' => 'file_search'];
+                // Update data['tools'] with the new tool
+                if (empty($data['tools'])) {
+                    $data['tools'] = [['type' => 'file_search']];
+                } else {
+                    $data['tools'][] = ['type' => 'file_search'];
+                }
+            }
+
+            $data['attachments'] = $this->attachments; // [['file_id'=>'file_...', 'tools'=>[['type'=>'file_search']]]...]
         }
 
         return $data;

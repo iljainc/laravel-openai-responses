@@ -129,6 +129,33 @@ class OpenAIAPIService
     }
 
     /**
+     * Upload file to OpenAI
+     */
+    public function uploadFile(string $path, string $purpose = 'assistants'): ?array
+    {
+        try {
+            $client = new \GuzzleHttp\Client([
+                'base_uri' => $this->baseUrl,
+                'timeout'  => 300,
+                'headers'  => ['Authorization' => 'Bearer ' . $this->apiKey],
+            ]);
+
+            $resp = $client->post('files', [
+                'multipart' => [
+                    ['name' => 'purpose', 'contents' => $purpose],
+                    ['name' => 'file', 'contents' => fopen($path, 'r'), 'filename' => basename($path)],
+                ],
+            ]);
+
+            $json = json_decode($resp->getBody()->getContents(), true);
+            return $json ?? null;
+        } catch (\Throwable $e) {
+            Log::error("LOR: uploadFile failed - ".$e->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Send raw request to OpenAI API
      */
     public function sendRequest(string $method, string $endpoint, array $options = []): ?array
