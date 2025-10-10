@@ -72,27 +72,27 @@ class OpenAIService
         return $this;
     }
 
-    public function attachFile(string $fileId, array $tools = [['type' => 'file_search']]): self
+    public function attachFile(string $fileId): self
     {
-        $this->attachments[] = ['file_id' => $fileId, 'tools' => $tools];
+        $this->attachments[] = ['file_id' => $fileId];
         return $this;
     }
 
-    public function attachFileIds(array $fileIds, array $tools = [['type' => 'file_search']]): self
+    public function attachFileIds(array $fileIds): self
     {
         foreach ($fileIds as $fid) {
-            $this->attachments[] = ['file_id' => $fid, 'tools' => $tools];
+            $this->attachments[] = ['file_id' => $fid];
         }
         return $this;
     }
 
     /** Удобный хелпер: загрузить локальный файл и тут же прикрепить */
-    public function attachLocalFile(string $absolutePath, array $tools = [['type' => 'file_search']]): self
+    public function attachLocalFile(string $absolutePath): self
     {
         $api = app(OpenAIAPIService::class);
         $resp = $api->uploadFile($absolutePath);
         if (!empty($resp['id'])) {
-            $this->attachments[] = ['file_id' => $resp['id'], 'tools' => $tools];
+            $this->attachments[] = ['file_id' => $resp['id']];
         }
         return $this;
     }
@@ -283,23 +283,38 @@ class OpenAIService
 
         // Add attachments if present
         if (!empty($this->attachments)) {
-            // гарантируем наличие инструмента чтения файлов
-            $hasFileSearch = false;
-            foreach ($this->tools as $t) {
-                if (($t['type'] ?? null) === 'file_search') { $hasFileSearch = true; break; }
-            }
-            if (!$hasFileSearch) {
-                $this->tools[] = ['type' => 'file_search'];
-                // Update data['tools'] with the new tool
-                if (empty($data['tools'])) {
-                    $data['tools'] = [['type' => 'file_search']];
-                } else {
-                    $data['tools'][] = ['type' => 'file_search'];
+            // Convert attachments to proper format for Responses API
+            // Files must be in input[].content[] as {type: "input_file", file_id: "..."}
+            if (!empty($data['input'])) {
+                $lastIndex = count($data['input']) - 1;
+                $lastMessage = &$data['input'][$lastIndex];
+                
+                // Only modify user messages
+                if (($lastMessage['role'] ?? '') === 'user') {
+                    $content = [];
+                    
+                    // Add text content
+                    if (isset($lastMessage['content'])) {
+                        $content[] = [
+                            'type' => 'input_text',
+                            'text' => $lastMessage['content']
+                        ];
+                    }
+                    
+                    // Add file attachments
+                    foreach ($this->attachments as $attachment) {
+                        $content[] = [
+                            'type' => 'input_file',
+                            'file_id' => $attachment['file_id']
+                        ];
+                    }
+                    
+                    $lastMessage['content'] = $content;
                 }
             }
-
-            $data['attachments'] = $this->attachments; // [['file_id'=>'file_...', 'tools'=>[['type'=>'file_search']]]...]
         }
+
+        
 
         return $data;
     }
