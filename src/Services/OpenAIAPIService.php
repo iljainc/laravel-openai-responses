@@ -17,7 +17,7 @@ class OpenAIAPIService
         $this->apiKey = $apiKey ?? config('openai-responses.api_key');
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
-            'timeout' => 60,
+            'timeout' => config('openai-responses.timeout', 60),
             'headers' => [
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
