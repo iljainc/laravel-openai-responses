@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 
 class OpenAIAPIService
 {
+    const DEFAULT_TIMEOUT = 60;
+
     private Client $client;
     private string $apiKey;
     private string $baseUrl = 'https://api.openai.com/v1/';
@@ -17,7 +19,7 @@ class OpenAIAPIService
         $this->apiKey = $apiKey ?? config('openai-responses.api_key');
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
-            'timeout' => config('openai-responses.timeout', 60),
+            'timeout' => config('openai-responses.timeout', self::DEFAULT_TIMEOUT),
             'headers' => [
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',

@@ -113,7 +113,7 @@ class ProcessService
             if ($this->isProcessActive((int)$checkPid, (int)$checkStartTime)) {
                 lor_debug_error("ProcessService::init() - Found active process ID: {$process->id}");
                 $this->responseLog->update(['status' => self::STATUS_FAILED]);
-                $this->comment("REJECTED: Another process is active (ID: {$process->id})");
+                $this->comment("REJECTED: Another process is active (ID: {$process->id}, PID: {$checkPid}, StartTime: {$checkStartTime})");
                 return false;
         } else {
                 // Процесс мертв, помечаем как failed
