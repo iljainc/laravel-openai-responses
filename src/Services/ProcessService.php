@@ -20,51 +20,7 @@ class ProcessService
     const STATUS_FAILED = 'failed';
 
     public $responseLog;
-
-    /**
-     * Получить время запуска процесса по PID
-     */
-    private function getProcessStartTime(int $pid)
-    {
-        try {
-            // Получаем время запуска через /proc/PID/stat
-            $statFile = "/proc/$pid/stat";
-            if (file_exists($statFile)) {
-                $stat = file_get_contents($statFile);
-                $statArray = explode(' ', $stat);
-                return (int)$statArray[21]; // starttime in clock ticks
-            }
-            
-            lor_debug_error("Process stat file not found - PID: {$pid}");
-            return false;
-        } catch (\Exception $e) {
-            lor_debug_error("Failed to get process start time - PID: {$pid}, Error: {$e->getMessage()}");
-            Log::error("LOR: ProcessService: Failed to get process start time", ['pid' => $pid, 'error' => $e->getMessage()]);
-            return false;
-        }
-    }
-
-
-    /**
-     * Проверить активен ли процесс в системе
-     */
-    private function isProcessActive(int $pid, int $startTime): bool
-    {
-        try {
-            // Проверяем существование процесса
-            if (!file_exists("/proc/$pid")) {
-                return false;
-            }
-
-            // Проверяем время запуска
-            $currentStartTime = $this->getProcessStartTime($pid);
-            return $currentStartTime === $startTime;
-        } catch (\Exception $e) {
-            lor_debug_error("Failed to check process status - PID: {$pid}, Error: {$e->getMessage()}");
-            Log::error("LOR: ProcessService: Failed to check process status", ['pid' => $pid, 'error' => $e->getMessage()]);
-            return false;
-        }
-    }
+    private $lockFp = null;
 
     /**
      * Инициализация процесса - сначала создаем запись, потом разбираемся с хуйней
@@ -73,7 +29,6 @@ class ProcessService
     {
         // Получаем PID сразу нахуй
         $pid = getmypid();
-        $startTime = $this->getProcessStartTime($pid);
         
         // Если массив - упаковываем в JSON
         if (is_array($requestText)) {
@@ -86,45 +41,44 @@ class ProcessService
             'request_text' => $requestText,
             'status' => self::STATUS_PENDING,
             'pid' => $pid,
-            'process_start_time' => $startTime,
+            'process_start_time' => null,
         ]);
 
-        if ($startTime === false) {
+        // File lock для проверки реальной активности скрипта (не воркера)
+        // Один lock-файл на один external_key (channel+user_id+msg_id)
+        $lockFile = storage_path('app/temp/openai_lock_' . md5($externalKey));
+        $lockDir = dirname($lockFile);
+        if (!is_dir($lockDir)) {
+            mkdir($lockDir, 0755, true);
+        }
+
+        // ШАГ 1: Открываем файл (создаст если нет, не трогает если есть)
+        // Режим 'c' = create/open without truncate
+        // НЕ БЛОКИРУЕТ - просто открывает файл
+        $this->lockFp = fopen($lockFile, 'c');
+        if (!$this->lockFp) {
             $this->responseLog->update(['status' => self::STATUS_FAILED]);
-            $this->comment('FAILED: Cannot get process start time - system error');
-            lor_debug_error("ProcessService::init() - Failed to get process start time");
-            Log::error("LOR: ProcessService: Failed to get process start time", ['pid' => $pid, 'external_key' => $externalKey]);
+            $this->comment('FAILED: Cannot create lock file');
             return false;
         }
 
-        // Ищем активные процессы для данного внешнего ключа (кроме текущего)
-        $activeProcesses = OpenAiRequestLog::where('external_key', $externalKey)
-            ->where('id', '!=', $this->responseLog->id)
-            ->whereNotIn('status', [self::STATUS_COMPLETED, self::STATUS_FAILED])
-            ->get();
-
-        // Проверяем каждый процесс на активность в системе
-        foreach ($activeProcesses as $process) {
-            if (!$process->pid || !$process->process_start_time) continue;
+        // ШАГ 2: ЗДЕСЬ ПРОИСХОДИТ БЛОКИРОВКА - пытаемся захватить эксклюзивный lock
+        // LOCK_EX = эксклюзивная блокировка (только один процесс)
+        // LOCK_NB = non-blocking (не ждать, сразу вернуть false если занято)
+        if (!flock($this->lockFp, LOCK_EX | LOCK_NB)) {
+            // Lock занят другим скриптом = он РЕАЛЬНО работает прямо сейчас
+            // flock НЕ СМОТРИТ на PID воркера - блокировка на уровне ядра ОС
+            fclose($this->lockFp);
+            $this->lockFp = null;
             
-            $checkPid = $process->pid;
-            $checkStartTime = $process->process_start_time;
-            
-            if ($this->isProcessActive((int)$checkPid, (int)$checkStartTime)) {
-                lor_debug_error("ProcessService::init() - Found active process ID: {$process->id}");
-                $this->responseLog->update(['status' => self::STATUS_FAILED]);
-                $this->comment("REJECTED: Another process is active (ID: {$process->id}, PID: {$checkPid}, StartTime: {$checkStartTime})");
-                return false;
-        } else {
-                // Процесс мертв, помечаем как failed
-                $process->update([
-                    'status' => self::STATUS_FAILED,
-                    'comments' => ($process->comments ?? '') . "\n[" . now()->format('Y-m-d H:i:s.v') . "] Process marked as failed - not active in system (killed by process ID: {$this->responseLog->id})"
-                ]);
-                lor_debug("ProcessService::init() - Marked dead process as failed ID: {$process->id}");
-                $this->comment("Marked dead process as failed: {$process->id}");
-            }
+            $this->responseLog->update(['status' => self::STATUS_FAILED]);
+            $this->comment('REJECTED: Another process is actively working (file lock held)');
+            return false;
         }
+
+        // Lock успешно захвачен текущим скриптом, можем работать
+        // Блокировка автоматически снимется при fclose() или завершении PHP скрипта
+        touch($lockFile); // Обновляем mtime для отладки
 
         // Можем выполнять - меняем статус на in_progress
         $this->responseLog->update(['status' => self::STATUS_IN_PROGRESS]);
@@ -184,6 +138,12 @@ class ProcessService
             
             $this->responseLog->update($updateData);
             $this->comment($status === self::STATUS_FAILED ? 'Process failed' : 'Process completed');
+        }
+
+        // Освобождаем file lock
+        if ($this->lockFp) {
+            fclose($this->lockFp);
+            $this->lockFp = null;
         }
     }
 
