@@ -90,7 +90,7 @@ class OpenAIService
     public function attachLocalFile(string $absolutePath): self
     {
         $api = app(OpenAIAPIService::class);
-        $resp = $api->uploadFile($absolutePath);
+        $resp = $api->uploadFile($absolutePath, 'context_stuffing');
         if (!empty($resp['id'])) {
             $this->attachments[] = ['file_id' => $resp['id']];
         }
