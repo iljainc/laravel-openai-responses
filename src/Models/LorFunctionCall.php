@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class OpenAiFunctionCall extends Model
+class LorFunctionCall extends Model
 {
     use HasFactory;
 
@@ -39,6 +39,6 @@ class OpenAiFunctionCall extends Model
      */
     public function requestLog(): BelongsTo
     {
-        return $this->belongsTo(OpenAiRequestLog::class, 'request_log_id');
+        return $this->belongsTo(LorRequestLog::class, 'request_log_id');
     }
 }

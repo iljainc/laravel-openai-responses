@@ -5,7 +5,7 @@ namespace Idpromogroup\LaravelOpenaiResponses\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class OpenAiRequestLog extends Model
+class LorRequestLog extends Model
 {
     use HasFactory;
 
@@ -42,7 +42,7 @@ class OpenAiRequestLog extends Model
      */
     public function conversation()
     {
-        return $this->belongsTo(OpenaiConversation::class, 'conversation_id', 'conversation_id');
+        return $this->belongsTo(LorConversation::class, 'conversation_id', 'conversation_id');
     }
 
 }

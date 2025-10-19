@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class OpenAITemplateFile extends Model
+class LorTemplateFile extends Model
 {
     use HasFactory;
 
@@ -48,7 +48,7 @@ class OpenAITemplateFile extends Model
      */
     public function template(): BelongsTo
     {
-        return $this->belongsTo(OpenAITemplate::class, 'template_id');
+        return $this->belongsTo(LorTemplate::class, 'template_id');
     }
 
     /**

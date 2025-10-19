@@ -6,7 +6,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
 
-class OpenAIAPIService
+class LorApiService
 {
     const DEFAULT_TIMEOUT = 60;
 
@@ -32,9 +32,9 @@ class OpenAIAPIService
      */
     public function chatResponses(array $data): ?array
     {
-        lor_debug("OpenAIAPIService::chatResponses() - Sending request");
-        lor_debug("OpenAIAPIService::chatResponses() - Full URL: " . $this->baseUrl . 'responses');
-        lor_debug("OpenAIAPIService::chatResponses() - Request data: " . print_r($data, true));
+        lor_debug("LorApiService::chatResponses() - Sending request");
+        lor_debug("LorApiService::chatResponses() - Full URL: " . $this->baseUrl . 'responses');
+        lor_debug("LorApiService::chatResponses() - Request data: " . print_r($data, true));
         $response = $this->client->post('responses', [
             'json' => $data
         ]);
@@ -44,7 +44,7 @@ class OpenAIAPIService
         
         $result = json_decode($body, true);
 
-        lor_debug("OpenAIAPIService::chatResponses() - Full AI response: " . print_r($result, true));
+        lor_debug("LorApiService::chatResponses() - Full AI response: " . print_r($result, true));
         
         if (json_last_error() !== JSON_ERROR_NONE) {
             Log::error("LOR: JSON decode error - " . json_last_error_msg() . " | Raw body: " . $body);
@@ -59,9 +59,9 @@ class OpenAIAPIService
      */
     public function submitToolOutputs(string $responseId, array $toolOutputs): ?array
     {
-        lor_debug("OpenAIAPIService::submitToolOutputs() - Submitting tool outputs for response: {$responseId}");
-        lor_debug("OpenAIAPIService::submitToolOutputs() - Full URL: " . $this->baseUrl . "responses/{$responseId}/submit_tool_outputs");
-        lor_debug("OpenAIAPIService::submitToolOutputs() - Tool outputs: " . print_r($toolOutputs, true));
+        lor_debug("LorApiService::submitToolOutputs() - Submitting tool outputs for response: {$responseId}");
+        lor_debug("LorApiService::submitToolOutputs() - Full URL: " . $this->baseUrl . "responses/{$responseId}/submit_tool_outputs");
+        lor_debug("LorApiService::submitToolOutputs() - Tool outputs: " . print_r($toolOutputs, true));
         
         $response = $this->client->post("responses/{$responseId}/submit_tool_outputs", [
             'json' => [
@@ -79,7 +79,7 @@ class OpenAIAPIService
             return null;
         }
 
-        lor_debug("OpenAIAPIService::submitToolOutputs() - Full AI response: " . print_r($result, true));
+        lor_debug("LorApiService::submitToolOutputs() - Full AI response: " . print_r($result, true));
         return $result;
     }
 
@@ -89,7 +89,7 @@ class OpenAIAPIService
     public function createConversation(?string $instructions = null): ?string
     {
         try {
-            lor_debug("OpenAIAPIService::createConversation() - Creating new conversation");
+            lor_debug("LorApiService::createConversation() - Creating new conversation");
             
             $items = [];
             
@@ -121,7 +121,7 @@ class OpenAIAPIService
             }
 
             $conversationId = $result['id'] ?? null;
-            lor_debug("OpenAIAPIService::createConversation() - Success: {$conversationId}");
+            lor_debug("LorApiService::createConversation() - Success: {$conversationId}");
             return $conversationId;
 
         } catch (GuzzleException $e) {

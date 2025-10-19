@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class OpenaiConversation extends Model
+class LorConversation extends Model
 {
     use HasFactory;
 
@@ -25,7 +25,7 @@ class OpenaiConversation extends Model
 
     public function requestLogs(): HasMany
     {
-        return $this->hasMany(OpenAiRequestLog::class, 'conversation_id', 'conversation_id');
+        return $this->hasMany(LorRequestLog::class, 'conversation_id', 'conversation_id');
     }
 
     public function isActive(): bool

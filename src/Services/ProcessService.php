@@ -2,7 +2,7 @@
 
 namespace Idpromogroup\LaravelOpenaiResponses\Services;
 
-use Idpromogroup\LaravelOpenaiResponses\Models\OpenAiRequestLog;
+use Idpromogroup\LaravelOpenaiResponses\Models\LorRequestLog;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -36,7 +36,7 @@ class ProcessService
         }
         
         // СНАЧАЛА НАХУЙ создаем запись в любом случае со всеми данными
-        $this->responseLog = OpenAiRequestLog::create([
+        $this->responseLog = LorRequestLog::create([
             'external_key' => $externalKey,
             'request_text' => $requestText,
             'status' => self::STATUS_PENDING,
@@ -99,7 +99,7 @@ class ProcessService
 
             try {
                 DB::transaction(function () use ($text) {
-                $currentLog = OpenAiRequestLog::find($this->responseLog->id);
+                $currentLog = LorRequestLog::find($this->responseLog->id);
 
                     if ($currentLog) {
                         $timestamp = Carbon::now()->format('m-d H:i:s.v');

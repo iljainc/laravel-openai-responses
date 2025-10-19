@@ -16,15 +16,15 @@ class VectorStoreManagementService
         $this->apiService = $apiService;
     }
 
-    public function manageAssistantVectorStore(OpenAIAssistantProject $project, ?object $command = null): bool
+    public function manageAssistantVectorStore(LorTemplate $project, ?object $command = null): bool
     {
         $assistantId = $project->openai_assistant_id;
 
         if ($command) $command->info("Init for Assistant {$project->name} ID: {$assistantId}");
 
-        $gdocsFiles = $project->gdocsFiles;
+        $templateFiles = $project->templateFiles;
 
-        if ($gdocsFiles->isEmpty()) {
+        if ($templateFiles->isEmpty()) {
             if ($command) $command->info("No Google Docs files associated with project {$project->name}.");
             return true;
         }
@@ -39,67 +39,67 @@ class VectorStoreManagementService
                 $vectorStoreId = $vectorStore['id'];
                 $this->attachVectorStoreToAssistant($assistantId, $vectorStoreId);
                 if ($command) $command->info("Created vector store with ID: $vectorStoreId");
-                assistant_debug("Created vector store with ID: $vectorStoreId");
+                lor_debug("Created vector store with ID: $vectorStoreId");
             } else {
                 Log::error('VectorStoreManagementService: Failed to create vector store.', $vectorStore ?? []);
-                assistant_debug('Failed to create vector store.', $vectorStore ?? []);
+                lor_debug('Failed to create vector store.', $vectorStore ?? []);
                 return false;
             }
         } else {
             if ($command) $command->info("Using existing vector store ID: $vectorStoreId");
-            assistant_debug("Using existing vector store ID: $vectorStoreId");
+            lor_debug("Using existing vector store ID: $vectorStoreId");
         }
 
         $uploadedFileIds = [];
 
-        foreach ($gdocsFiles as $gdocsFile) {
-            $fileContent = $this->downloadFileContent($gdocsFile->file_url, $gdocsFile->file_type);
+        foreach ($templateFiles as $templateFile) {
+            $fileContent = $this->downloadFileContent($templateFile->file_url, $templateFile->file_type);
             if ($fileContent === null) {
-                Log::warning("VectorStoreManagementService: Could not download content for {$gdocsFile->file_url}");
-                assistant_debug("Could not download content for {$gdocsFile->file_url}");
+                Log::warning("VectorStoreManagementService: Could not download content for {$templateFile->file_url}");
+                lor_debug("Could not download content for {$templateFile->file_url}");
                 continue;
             }
             $currentFileHash = md5($fileContent);
 
-            if ($gdocsFile->gdocs_file_hash !== $currentFileHash) {
+            if ($templateFile->file_hash !== $currentFileHash) {
                 // Проверяем, является ли это локальным файлом
-                $isLocalFile = !filter_var($gdocsFile->file_url, FILTER_VALIDATE_URL) && file_exists($gdocsFile->file_url);
+                $isLocalFile = !filter_var($templateFile->file_url, FILTER_VALIDATE_URL) && file_exists($templateFile->file_url);
                 
                 if ($isLocalFile) {
                     // Используем существующий файл напрямую
-                    $filePath = $gdocsFile->file_url;
+                    $filePath = $templateFile->file_url;
                 } else {
                     // Создаем временный файл для URL
-                    $filePath = storage_path('app/gdocs_file_' . $gdocsFile->id . '.' . $gdocsFile->file_type);
+                    $filePath = storage_path('app/template_file_' . $templateFile->id . '.' . $templateFile->file_type);
                     file_put_contents($filePath, $fileContent);
                 }
 
                 $uploadedFile = $this->uploadFileToOpenAI($filePath, 'assistants');
                 if (isset($uploadedFile['id'])) {
                     $this->addFileToVectorStore($vectorStoreId, $uploadedFile['id']);
-                    $gdocsFile->vector_store_file_id = $uploadedFile['id'];
-                    $gdocsFile->gdocs_file_hash = $currentFileHash;
-                    $gdocsFile->save();
+                    $templateFile->vector_store_file_id = $uploadedFile['id'];
+                    $templateFile->file_hash = $currentFileHash;
+                    $templateFile->save();
                     $uploadedFileIds[] = $uploadedFile['id'];
-                    if ($command) $command->info("Uploaded and attached {$gdocsFile->file_url} to vector store.");
-                    assistant_debug("Uploaded and attached {$gdocsFile->file_url} to vector store. File ID: {$uploadedFile['id']}");
+                    if ($command) $command->info("Uploaded and attached {$templateFile->file_url} to vector store.");
+                    lor_debug("Uploaded and attached {$templateFile->file_url} to vector store. File ID: {$uploadedFile['id']}");
                 } else {
                     Log::error('VectorStoreManagementService: Failed to upload file.', $uploadedFile ?? []);
-                    assistant_debug('Failed to upload file.', $uploadedFile ?? []);
+                    lor_debug('Failed to upload file.', $uploadedFile ?? []);
                 }
 
                 // Удаляем временный файл только если он был создан
                 if (!$isLocalFile && file_exists($filePath)) {
                     unlink($filePath);
                     if ($command) $command->info("Temporary file deleted.");
-                    assistant_debug("Temporary file deleted: {$filePath}");
+                    lor_debug("Temporary file deleted: {$filePath}");
                 }
             } else {
-                if ($command) $command->info("{$gdocsFile->file_url} has not changed.");
-                assistant_debug("{$gdocsFile->file_url} has not changed.");
-                if ($gdocsFile->vector_store_file_id) {
-                    $uploadedFileIds[] = $gdocsFile->vector_store_file_id;
-                    assistant_debug("{$gdocsFile->file_url} already in vector store with ID: {$gdocsFile->vector_store_file_id}");
+                if ($command) $command->info("{$templateFile->file_url} has not changed.");
+                lor_debug("{$templateFile->file_url} has not changed.");
+                if ($templateFile->vector_store_file_id) {
+                    $uploadedFileIds[] = $templateFile->vector_store_file_id;
+                    lor_debug("{$templateFile->file_url} already in vector store with ID: {$templateFile->vector_store_file_id}");
                 }
             }
         }
@@ -112,13 +112,13 @@ class VectorStoreManagementService
                     if (!in_array($storedFile['id'], $uploadedFileIds)) {
                         $this->deleteFile($storedFile['id']);
                         if ($command) $command->info("Deleted outdated file ID: {$storedFile['id']} from vector store.");
-                        assistant_debug("Deleted outdated file ID: {$storedFile['id']} from vector store.");
+                        lor_debug("Deleted outdated file ID: {$storedFile['id']} from vector store.");
                         // Optionally clear vector_store_file_id in your database for the deleted file
-                        $gdocsFileToDelete = $gdocsFiles->where('vector_store_file_id', $storedFile['id'])->first();
-                        if ($gdocsFileToDelete) {
-                            $gdocsFileToDelete->vector_store_file_id = null;
-                            $gdocsFileToDelete->save();
-                            assistant_debug("Cleared vector_store_file_id for deleted file in database.");
+                        $templateFileToDelete = $templateFiles->where('vector_store_file_id', $storedFile['id'])->first();
+                        if ($templateFileToDelete) {
+                            $templateFileToDelete->vector_store_file_id = null;
+                            $templateFileToDelete->save();
+                            lor_debug("Cleared vector_store_file_id for deleted file in database.");
                         }
                     }
                 }

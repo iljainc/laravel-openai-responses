@@ -1,25 +1,25 @@
 <?php
 
-namespace Idpromogroup\LaravelOpenAIAssistants\Facades;
+namespace Idpromogroup\LaravelOpenaiResponses\Facades;
 
 use Illuminate\Support\Facades\Facade;
 
-class OpenAIAssistants extends Facade
+class Lor extends Facade
 {
     protected static function getFacadeAccessor()
     {
-        return \Idpromogroup\LaravelOpenAIAssistants\Services\OpenAIService::class;
+        return \Idpromogroup\LaravelOpenaiResponses\Services\LorService::class;
     }
 
     protected static function vectorStoreService()
     {
-        return app(\Idpromogroup\LaravelOpenAIAssistants\Services\VectorStoreManagementService::class);
+        return app(\Idpromogroup\LaravelOpenaiResponses\Services\VectorStoreManagementService::class);
     }
 
     /**
      * Всё статическое проксируем без изменений:
-     *   OpenAIAssistants::assistant($assistantId, $question, …)
-     *   OpenAIAssistants::syncAssistantFiles($project)
+     *   Lor::assistant($assistantId, $question, …)
+     *   Lor::syncAssistantFiles($project)
      * и т. д.
      */
     public static function __callStatic($method, $args)

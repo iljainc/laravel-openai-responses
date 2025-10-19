@@ -9,7 +9,7 @@ use Idpromogroup\LaravelOpenaiResponses\Models\LorTemplate;
 use Idpromogroup\LaravelOpenaiResponses\Result;
 use Illuminate\Support\Facades\Log;
 
-class OpenAIService
+class LorService
 {
     private string $externalKey;
     private string $model = 'gpt-4o-mini';
@@ -101,9 +101,9 @@ class OpenAIService
     {
         // Поиск шаблона по ID или имени
         if (is_numeric($template)) {
-            $templateModel = OpenAITemplate::find($template);
+            $templateModel = LorTemplate::find($template);
         } else {
-            $templateModel = OpenAITemplate::where('name', $template)->first();
+            $templateModel = LorTemplate::where('name', $template)->first();
         }
 
         if (!$templateModel) {
@@ -141,9 +141,9 @@ class OpenAIService
 
     public function execute(): Result
     {
-        lor_debug("OpenAIService::execute() - INIT model = {$this->model}, externalKey = {$this->externalKey}");
-        lor_debug("OpenAIService::execute() - Message: " . substr($this->message, 0, 100) . (strlen($this->message) > 100 ? '...' : ''));
-        lor_debug("OpenAIService::execute() - Conversation user: " . ($this->conversationUser ?? 'none'));
+        lor_debug("LorService::execute() - INIT model = {$this->model}, externalKey = {$this->externalKey}");
+        lor_debug("LorService::execute() - Message: " . substr($this->message, 0, 100) . (strlen($this->message) > 100 ? '...' : ''));
+        lor_debug("LorService::execute() - Conversation user: " . ($this->conversationUser ?? 'none'));
 
         $startTime = microtime(true);
         
@@ -154,10 +154,10 @@ class OpenAIService
         
         // Handle conversation mode after init
         if ($this->conversationUser) {
-            lor_debug("OpenAIService::execute() - Creating/getting conversation for user: {$this->conversationUser}");
+            lor_debug("LorService::execute() - Creating/getting conversation for user: {$this->conversationUser}");
             $this->conversationId = $this->getOrCreateConversation();
             if (!$this->conversationId) {
-                lor_debug("OpenAIService::execute() - FAILED to create conversation");
+                lor_debug("LorService::execute() - FAILED to create conversation");
                 $this->processService->responseLog->update([
                     'status' => ProcessService::STATUS_FAILED,
                 ]);
@@ -165,7 +165,7 @@ class OpenAIService
                 return Result::failure('Failed to create conversation');
             }
             
-            lor_debug("OpenAIService::execute() - Using conversation ID: {$this->conversationId}");
+            lor_debug("LorService::execute() - Using conversation ID: {$this->conversationId}");
             // Add conversation_id to existing log
             $this->processService->responseLog->update(['conversation_id' => $this->conversationId]);
         }
@@ -188,25 +188,25 @@ class OpenAIService
                 });
                 
                 if (!empty($functionCalls)) {
-                    lor_debug("OpenAIService::execute() - Found " . count($functionCalls) . " function calls to handle");
+                    lor_debug("LorService::execute() - Found " . count($functionCalls) . " function calls to handle");
                     $response = $this->handleFunctionCalls($functionCalls);
                 }
             }
             
-            lor_debug("OpenAIService::execute() - Request completed");
+            lor_debug("LorService::execute() - Request completed");
             return Result::success($response);
             
         } catch (\Exception $e) {
             // Проверяем если это ClientException с 400 статусом - это ответ API, а не ошибка
             if ($e instanceof \GuzzleHttp\Exception\ClientException && $e->getCode() === 400) {
-                lor_debug("OpenAIService::execute() - Got 400 response, treating as API response");
+                lor_debug("LorService::execute() - Got 400 response, treating as API response");
                 
                 if ($e->hasResponse()) {
                     $errorBody = $e->getResponse()->getBody()->getContents();
                     $errorJson = json_decode($errorBody, true);
                     
                     if ($errorJson) {
-                        lor_debug("OpenAIService::execute() - Parsed 400 response: " . print_r($errorJson, true));
+                        lor_debug("LorService::execute() - Parsed 400 response: " . print_r($errorJson, true));
                         
                         // Логируем ответ с ошибкой
                         $this->processService->close(json_encode($errorJson, JSON_UNESCAPED_UNICODE), round(microtime(true) - $startTime, 2), ProcessService::STATUS_FAILED);
@@ -230,8 +230,8 @@ class OpenAIService
                 $errorMessage .= " | Full response: " . $responseBody;
             }
             
-            Log::error("LOR: OpenAIService::execute() failed - " . $errorMessage);
-            lor_debug("LOR: OpenAIService::execute() failed - " . $errorMessage);
+            Log::error("LOR: LorService::execute() failed - " . $errorMessage);
+            lor_debug("LOR: LorService::execute() failed - " . $errorMessage);
             return Result::failure('API Error: ' . $errorMessage);
         }
     }
@@ -325,7 +325,7 @@ class OpenAIService
 
      private function handleFunctionCalls(array $toolCalls): array
      {
-         lor_debug("OpenAIService::handleFunctionCalls() - Starting function calls handling");
+         lor_debug("LorService::handleFunctionCalls() - Starting function calls handling");
          
          // Формируем messages с результатами функций
          $this->messages = [];
@@ -341,22 +341,22 @@ class OpenAIService
                 ?? ($toolCall['id'] ?? ($toolCall['tool_call_id'] ?? null));
 
             if (!$functionName || !$toolCallId) {
-                lor_debug("OpenAIService::handleFunctionCalls() - Skipping invalid function call");
+                lor_debug("LorService::handleFunctionCalls() - Skipping invalid function call");
                 continue;
             }
 
-            lor_debug("OpenAIService::handleFunctionCalls() - Processing function: {$functionName}");
+            lor_debug("LorService::handleFunctionCalls() - Processing function: {$functionName}");
             $startTime = microtime(true);
             $args = is_string($argumentsRaw)
                 ? (json_decode($argumentsRaw, true) ?: [])
                 : (is_array($argumentsRaw) ? $argumentsRaw : []);
 
-            $functionLog = OpenAiFunctionCall::create([
+            $functionLog = LorFunctionCall::create([
                 'request_log_id' => $this->processService->responseLog->id,
                 'external_key'   => $this->externalKey,
                 'function_name'  => $functionName,
                 'arguments'      => $args,
-                'status'         => OpenAiFunctionCall::STATUS_PENDING,
+                'status'         => LorFunctionCall::STATUS_PENDING,
             ]);
 
             try {
@@ -364,15 +364,15 @@ class OpenAIService
                 if ($handlerClass && class_exists($handlerClass)) {
                     $handler = app($handlerClass);
                     $result = $handler->execute($functionName, $args);
-                    lor_debug("OpenAIService::handleFunctionCalls() - Function {$functionName} returned: " . json_encode($result));
+                    lor_debug("LorService::handleFunctionCalls() - Function {$functionName} returned: " . json_encode($result));
                 } else {
-                    lor_debug("OpenAIService::handleFunctionCalls() - Function handler not configured: {$handlerClass}");
+                    lor_debug("LorService::handleFunctionCalls() - Function handler not configured: {$handlerClass}");
                     $result = ['error' => 'Function handler not configured or not found'];
                 }
 
                 $functionLog->update([
                     'output'         => $result,
-                    'status'         => OpenAiFunctionCall::STATUS_SUCCESS,
+                    'status'         => LorFunctionCall::STATUS_SUCCESS,
                     'execution_time' => round(microtime(true) - $startTime, 2),
                 ]);
 
@@ -386,7 +386,7 @@ class OpenAIService
                 ];
             } catch (\Exception $e) {
                 $functionLog->update([
-                    'status'         => OpenAiFunctionCall::STATUS_FAILED,
+                    'status'         => LorFunctionCall::STATUS_FAILED,
                     'error_message'  => $e->getMessage(),
                     'execution_time' => round(microtime(true) - $startTime, 2),
                 ]);
@@ -404,7 +404,7 @@ class OpenAIService
         
         // Обнуляем processService и делаем новый запрос
         $this->processService = null;
-        lor_debug("OpenAIService::handleFunctionCalls() - Making new request with function results");
+        lor_debug("LorService::handleFunctionCalls() - Making new request with function results");
         
         $result = $this->execute();
         return $result->success ? $result->data : [];
@@ -416,24 +416,24 @@ class OpenAIService
      private function handleAPIError(array $error): Result
      {
          $message = $error['message'] ?? 'Unknown API error';
-         lor_debug("OpenAIService::handleAPIError() - API Error: {$message}");
+         lor_debug("LorService::handleAPIError() - API Error: {$message}");
          
          // Проверяем на ошибку "No tool output found" - диалог завис
          if (strpos($message, 'No tool output found for function call') !== false) {
-             lor_debug("OpenAIService::handleAPIError() - Conversation stuck, closing and retrying");
+             lor_debug("LorService::handleAPIError() - Conversation stuck, closing and retrying");
              
              // Закрываем текущий диалог
              if ($this->conversationUser && $this->conversationId) {
-                 $conversation = Conversation::where('conversation_id', $this->conversationId)->first();
+                 $conversation = LorConversation::where('conversation_id', $this->conversationId)->first();
                  if ($conversation) {
-                     $conversation->update(['status' => Conversation::STATUS_CLOSED]);
-                     lor_debug("OpenAIService::handleAPIError() - Closed conversation: {$this->conversationId}");
+                     $conversation->update(['status' => LorConversation::STATUS_CLOSED]);
+                     lor_debug("LorService::handleAPIError() - Closed conversation: {$this->conversationId}");
                  }
              }
              
              // Сбрасываем conversation ID и повторяем запрос
              $this->conversationId = null;
-             lor_debug("OpenAIService::handleAPIError() - Retrying with new conversation");
+             lor_debug("LorService::handleAPIError() - Retrying with new conversation");
              return $this->execute();
          }
          

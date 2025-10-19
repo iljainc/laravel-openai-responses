@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class OpenAITemplate extends Model
+class LorTemplate extends Model
 {
     use HasFactory;
 
@@ -36,7 +36,9 @@ class OpenAITemplate extends Model
         'response_format',
         'json_schema',
         'openai_api_key',
-        'user_id'
+        'user_id',
+        'openai_assistant_id',
+        'project_name'
     ];
 
     protected $casts = [
@@ -51,7 +53,15 @@ class OpenAITemplate extends Model
      */
     public function projectLogs(): HasMany
     {
-        return $this->hasMany(OpenAITemplateLog::class, 'project_id');
+        return $this->hasMany(LorTemplateLog::class, 'project_id');
+    }
+
+    /**
+     * Get the template files for this template.
+     */
+    public function templateFiles(): HasMany
+    {
+        return $this->hasMany(LorTemplateFile::class, 'template_id');
     }
 
     /**
@@ -67,7 +77,7 @@ class OpenAITemplate extends Model
      */
     public function logState(): void
     {
-        OpenAITemplateLog::create([
+            LorTemplateLog::create([
             'project_id' => $this->id,
             'user_id' => $this->user_id,
             'name' => $this->name,
