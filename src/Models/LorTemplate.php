@@ -10,7 +10,7 @@ class LorTemplate extends Model
 {
     use HasFactory;
 
-    protected $table = 'openai_templates';
+    protected $table = 'lor_templates';
 
     protected static function boot()
     {

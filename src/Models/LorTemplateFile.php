@@ -10,7 +10,7 @@ class LorTemplateFile extends Model
 {
     use HasFactory;
 
-    protected $table = 'openai_template_files';
+    protected $table = 'lor_template_files';
 
     protected $fillable = [
         'template_id',

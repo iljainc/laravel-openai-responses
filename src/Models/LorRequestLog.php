@@ -9,7 +9,7 @@ class LorRequestLog extends Model
 {
     use HasFactory;
 
-    protected $table = 'openai_request_logs';
+    protected $table = 'lor_request_logs';
 
     protected $fillable = [
         'external_key',

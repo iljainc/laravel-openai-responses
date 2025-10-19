@@ -10,7 +10,7 @@ class LorFunctionCall extends Model
 {
     use HasFactory;
 
-    protected $table = 'openai_function_calls';
+    protected $table = 'lor_function_calls';
 
     protected $fillable = [
         'request_log_id',

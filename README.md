@@ -13,9 +13,9 @@ composer require idpromogroup/laravel-openai-responses
 ### Basic Usage
 
 ```php
-use Idpromogroup\LaravelOpenaiResponses\Services\OpenAIService;
+use Idpromogroup\LaravelOpenaiResponses\Services\LorService;
 
-$service = new OpenAIService($externalKey, 'Your message here');
+$service = new LorService($externalKey, 'Your message here');
 $result = $service->setModel('gpt-4o-mini')
     ->setInstructions('You are a helpful assistant')
     ->execute();
@@ -32,7 +32,7 @@ The package supports file attachments for analysis, processing, and discussion:
 #### Upload and Attach Local Files
 
 ```php
-$service = new OpenAIService($externalKey, 'Analyze this document')
+$service = new LorService($externalKey, 'Analyze this document')
     ->setModel('gpt-4o-mini')
     ->attachLocalFile(storage_path('app/documents/report.pdf'));
 
@@ -43,12 +43,12 @@ $result = $service->execute();
 
 ```php
 // Upload file first
-$apiService = app(OpenAIAPIService::class);
+$apiService = app(LorApiService::class);
 $uploadResult = $apiService->uploadFile('/path/to/file.pdf', 'assistants');
 $fileId = $uploadResult['id'];
 
 // Then attach to conversation
-$service = new OpenAIService($externalKey, 'Discuss this file')
+$service = new LorService($externalKey, 'Discuss this file')
     ->attachFile($fileId)
     ->execute();
 ```
@@ -56,7 +56,7 @@ $service = new OpenAIService($externalKey, 'Discuss this file')
 #### Attach Multiple Files
 
 ```php
-$service = new OpenAIService($externalKey, 'Compare these documents')
+$service = new LorService($externalKey, 'Compare these documents')
     ->attachFileIds(['file_123', 'file_456'])
     ->attachLocalFile(storage_path('app/contract.docx'))
     ->execute();
@@ -65,8 +65,8 @@ $service = new OpenAIService($externalKey, 'Compare these documents')
 #### Custom Tools for File Processing
 
 ```php
-$service = new OpenAIService($externalKey, 'Extract data from spreadsheet')
-    ->attachFile($fileId, [['type' => 'code_interpreter']])
+$service = new LorService($externalKey, 'Extract data from spreadsheet')
+    ->attachFile($fileId)
     ->execute();
 ```
 
@@ -75,7 +75,7 @@ $service = new OpenAIService($externalKey, 'Extract data from spreadsheet')
 ### Using Templates
 
 ```php
-$service = new OpenAIService($externalKey, 'Your message')
+$service = new LorService($externalKey, 'Your message')
     ->useTemplate('analysis_template') // by name
     ->execute();
 
@@ -86,12 +86,12 @@ $service->useTemplate(1);
 ### Conversation Mode
 
 ```php
-$service = new OpenAIService($externalKey, 'Hello')
+$service = new LorService($externalKey, 'Hello')
     ->setConversation('user123')
     ->execute();
 
 // Subsequent messages will continue the conversation
-$service = new OpenAIService($externalKey, 'Follow up question')
+$service = new LorService($externalKey, 'Follow up question')
     ->setConversation('user123')
     ->execute();
 ```
@@ -124,7 +124,7 @@ class MyFunctionHandler
 ### Advanced Configuration
 
 ```php
-$service = new OpenAIService($externalKey, 'Your message')
+$service = new LorService($externalKey, 'Your message')
     ->setModel('gpt-4o-mini')
     ->setInstructions('Custom instructions')
     ->setTemperature(0.7)
@@ -143,9 +143,9 @@ $service = new OpenAIService($externalKey, 'Your message')
 Direct file upload to OpenAI:
 
 ```php
-use Idpromogroup\LaravelOpenaiResponses\Services\OpenAIAPIService;
+use Idpromogroup\LaravelOpenaiResponses\Services\LorApiService;
 
-$apiService = new OpenAIAPIService();
+$apiService = new LorApiService();
 $result = $apiService->uploadFile('/path/to/file.pdf', 'assistants');
 
 if ($result) {
