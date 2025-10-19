@@ -7,6 +7,37 @@ use Idpromogroup\LaravelOpenaiResponses\Services\LorApiService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * ЗАКОММЕНТИРОВАНО: VectorStoreManagementService
+ * 
+ * ТЕКУЩАЯ ПРОБЛЕМА: Этот сервис работает неправильно - он пытается управлять
+ * векторными хранилищами OpenAI напрямую через API, что не соответствует
+ * архитектуре пакета.
+ * 
+ * ПРАВИЛЬНАЯ ЛОГИКА должна быть такой:
+ * 
+ * 1. ХРАНЕНИЕ В БД:
+ *    - В таблице lor_template_files должны храниться:
+ *      * file_id (ID файла в OpenAI)
+ *      * vector_store_id (ID векторного хранилища в OpenAI)
+ *      * vector_store_file_id (ID файла внутри векторного хранилища)
+ * 
+ * 2. ПРИВЯЗКА К ШАБЛОНАМ:
+ *    - Шаблон (LorTemplate) должен знать какие файлы у него есть
+ *    - Файлы должны знать к какому векторному хранилищу они привязаны
+ * 
+ * 3. УПРАВЛЕНИЕ:
+ *    - Создание векторных хранилищ должно быть отдельной операцией
+ *    - Загрузка файлов в хранилища должна быть отдельной операцией
+ *    - Привязка хранилищ к ассистентам должна быть отдельной операцией
+ * 
+ * 4. НЕ НУЖНО:
+ *    - Хранить openai_assistant_id в шаблонах
+ *    - Управлять ассистентами через этот сервис
+ *    - Автоматически создавать векторные хранилища
+ * 
+ * TODO: Переписать этот сервис с правильной архитектурой
+ */
 class VectorStoreManagementService
 {
     private LorApiService $apiService;
@@ -16,6 +47,8 @@ class VectorStoreManagementService
         $this->apiService = $apiService;
     }
 
+    // ЗАКОММЕНТИРОВАНО: Неправильная логика - работает с ассистентами вместо шаблонов
+    /*
     public function manageAssistantVectorStore(LorTemplate $project, ?object $command = null): bool
     {
         $assistantId = $project->openai_assistant_id;
@@ -127,7 +160,10 @@ class VectorStoreManagementService
 
         return true;
     }
+    */
 
+    // ЗАКОММЕНТИРОВАНО: Методы для работы с ассистентами - не нужны в текущей архитектуре
+    /*
     private function getAssistantInfo(string $assistantId): ?array
     {
         return $this->apiService->sendRequest('GET', "assistants/{$assistantId}");
@@ -195,6 +231,7 @@ class VectorStoreManagementService
     {
         return $this->apiService->sendRequest('DELETE', "files/{$fileId}");
     }
+    */
 
     protected function downloadFileContent(string $fileIdOrUrl, string $fileType): ?string
     {

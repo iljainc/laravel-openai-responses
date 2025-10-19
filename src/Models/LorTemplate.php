@@ -36,9 +36,7 @@ class LorTemplate extends Model
         'response_format',
         'json_schema',
         'openai_api_key',
-        'user_id',
-        'openai_assistant_id',
-        'project_name'
+        'user_id'
     ];
 
     protected $casts = [
