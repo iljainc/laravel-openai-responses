@@ -132,10 +132,28 @@ class LorApiService
 
     /**
      * Upload file to OpenAI
+     * 
+     * @param string $path Путь к файлу
+     * @param string $purpose Цель загрузки ('user_data' или 'assistants')
+     * @return array|null Ответ API с информацией о загруженном файле
      */
-    public function uploadFile(string $path, string $purpose = 'assistants'): ?array
+    public function uploadFile(string $path, string $purpose = 'user_data'): ?array
     {
         try {
+            // Проверяем существование файла
+            if (!file_exists($path)) {
+                Log::error("LOR: uploadFile failed - File not found: {$path}");
+                return null;
+            }
+            
+            // Проверяем размер файла
+            if (filesize($path) === 0) {
+                Log::error("LOR: uploadFile failed - Empty file: {$path}");
+                return null;
+            }
+            
+            lor_debug("LorApiService::uploadFile() - Uploading file: {$path}, size: " . filesize($path) . " bytes");
+            
             $client = new \GuzzleHttp\Client([
                 'base_uri' => $this->baseUrl,
                 'timeout'  => 300,
@@ -150,6 +168,12 @@ class LorApiService
             ]);
 
             $json = json_decode($resp->getBody()->getContents(), true);
+            
+            // Логируем успешную загрузку
+            if (isset($json['id'])) {
+                lor_debug("LorApiService::uploadFile() - File uploaded successfully, ID: {$json['id']}");
+            }
+            
             return $json ?? null;
         } catch (\Throwable $e) {
             Log::error("LOR: uploadFile failed - ".$e->getMessage());

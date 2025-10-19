@@ -9,23 +9,61 @@ use Idpromogroup\LaravelOpenaiResponses\Models\LorTemplate;
 use Idpromogroup\LaravelOpenaiResponses\Result;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Основной сервис для работы с OpenAI API через Responses API
+ * 
+ * Предоставляет удобный интерфейс для:
+ * - Отправки сообщений в OpenAI
+ * - Работы с файлами (изображения и PDF)
+ * - Использования шаблонов
+ * - Обработки function calls
+ * - Управления диалогами
+ */
 class LorService
 {
+    /** Внешний ключ для идентификации запроса */
     private string $externalKey;
+    
+    /** Модель OpenAI (по умолчанию gpt-4o-mini) */
     private string $model = 'gpt-4o-mini';
+    
+    /** Основное сообщение пользователя */
     private string $message;
+    
+    /** Сервис для обработки процессов и логирования */
     private ?ProcessService $processService = null;
+    
+    /** Предустановленные сообщения для диалога */
     private ?array $messages = null;
     
     // Optional parameters
+    /** Системные инструкции для AI */
     private ?string $instructions = null;
+    
+    /** Массив инструментов (function calls) */
     private array $tools = [];
+    
+    /** JSON схема для структурированного ответа */
     private ?array $jsonSchema = null;
+    
+    /** Температура для генерации (0.0 - 2.0) */
     private ?float $temperature = null;
+    
+    /** Пользователь для режима диалога */
     private ?string $conversationUser = null;
+    
+    /** ID диалога в OpenAI */
     private ?string $conversationId = null;
+    
+    /** Массив прикрепленных файлов */
     private array $attachments = [];
 
+    /**
+     * Конструктор сервиса
+     * 
+     * @param string $externalKey Внешний ключ для идентификации запроса
+     * @param string $message Сообщение пользователя
+     */
     public function __construct(string $externalKey, string $message)
     {
         $this->externalKey = $externalKey;
@@ -36,67 +74,184 @@ class LorService
      |  BUILDER METHODS
      |------------------------------------------------------------------- */
 
+    /**
+     * Установить модель OpenAI
+     * 
+     * @param string $model Название модели (например, 'gpt-4o-mini', 'gpt-4o')
+     * @return self
+     */
     public function setModel(string $model): self
     {
         $this->model = $model;
         return $this;
     }
 
+    /**
+     * Установить системные инструкции для AI
+     * 
+     * @param string $instructions Инструкции для модели
+     * @return self
+     */
     public function setInstructions(string $instructions): self
     {
         $this->instructions = $instructions;
         return $this;
     }
 
+    /**
+     * Установить инструменты (function calls)
+     * 
+     * @param array $tools Массив инструментов
+     * @return self
+     */
     public function setTools(array $tools): self
     {
         $this->tools = $tools;
         return $this;
     }
 
+    /**
+     * Установить JSON схему для структурированного ответа
+     * 
+     * @param array $schema JSON схема
+     * @return self
+     */
     public function setJSONSchema(array $schema): self
     {
         $this->jsonSchema = $schema;
         return $this;
     }
 
+    /**
+     * Установить температуру генерации
+     * 
+     * @param float $temperature Температура от 0.0 до 2.0
+     * @return self
+     */
     public function setTemperature(float $temperature): self
     {
         $this->temperature = $temperature;
         return $this;
     }
 
+    /**
+     * Включить режим диалога для пользователя
+     * 
+     * @param string $user Идентификатор пользователя
+     * @return self
+     */
     public function setConversation(string $user): self
     {
         $this->conversationUser = $user;
         return $this;
     }
 
-    public function attachFile(string $fileId): self
+    /**
+     * Прикрепить файл по ID (уже загруженный в OpenAI)
+     * 
+     * @param string $fileId ID файла в OpenAI
+     * @param string|null $fileType Тип файла ('image' или 'pdf')
+     * @return self
+     */
+    public function attachFile(string $fileId, string $fileType = null): self
     {
-        $this->attachments[] = ['file_id' => $fileId];
+        $this->attachments[] = [
+            'file_id' => $fileId,
+            'type' => $fileType
+        ];
         return $this;
     }
 
+    /**
+     * Прикрепить несколько файлов по ID
+     * 
+     * @param array $fileIds Массив ID файлов
+     * @return self
+     */
     public function attachFileIds(array $fileIds): self
     {
         foreach ($fileIds as $fid) {
-            $this->attachments[] = ['file_id' => $fid];
+            $this->attachments[] = [
+                'file_id' => $fid,
+                'type' => null // Тип должен быть определен в attachFile()
+            ];
         }
         return $this;
     }
 
-    /** Удобный хелпер: загрузить локальный файл и тут же прикрепить */
+    /**
+     * Загрузить локальный файл в OpenAI и прикрепить его
+     * 
+     * Поддерживаемые форматы:
+     * - Изображения: JPG, PNG, WEBP
+     * - Документы: PDF
+     * 
+     * @param string $absolutePath Абсолютный путь к файлу
+     * @return self
+     * @throws \InvalidArgumentException Если формат файла не поддерживается
+     */
     public function attachLocalFile(string $absolutePath): self
     {
-        $api = app(LorApiService::class);
-        $resp = $api->uploadFile($absolutePath, 'assistants');
-        if (!empty($resp['id'])) {
-            $this->attachments[] = ['file_id' => $resp['id']];
+        // Определяем MIME тип файла
+        $mimeType = mime_content_type($absolutePath);
+        if (!$mimeType) {
+            lor_debug("LorService::attachLocalFile() - Cannot determine MIME type for: {$absolutePath}");
+            return $this;
         }
+
+        // Определяем тип файла по MIME и проверяем поддержку
+        $fileType = $this->getFileTypeFromMime($mimeType);
+        if (!$fileType) {
+            lor_debug("LorService::attachLocalFile() - Unsupported file type: {$mimeType} for: {$absolutePath}");
+            throw new \InvalidArgumentException(__("Unsupported format. Upload PDF or image (JPG/PNG/WEBP)."));
+        }
+
+        lor_debug("LorService::attachLocalFile() - File: {$absolutePath}, MIME: {$mimeType}, Type: {$fileType}");
+
+        // Загружаем файл в OpenAI с purpose 'user_data'
+        $api = app(LorApiService::class);
+        $resp = $api->uploadFile($absolutePath, 'user_data');
+        
+        // Добавляем файл в список вложений
+        if (!empty($resp['id'])) {
+            $this->attachments[] = [
+                'file_id' => $resp['id'],
+                'type' => $fileType
+            ];
+            lor_debug("LorService::attachLocalFile() - Uploaded file ID: {$resp['id']}, Type: {$fileType}");
+        }
+        
         return $this;
     }
 
+    /**
+     * Определить тип файла по MIME типу
+     * 
+     * @param string $mimeType MIME тип файла
+     * @return string|null 'image', 'pdf' или null для неподдерживаемых типов
+     */
+    private function getFileTypeFromMime(string $mimeType): ?string
+    {
+        if (str_starts_with($mimeType, 'image/')) {
+            // Разрешенные типы изображений
+            $allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            if (in_array($mimeType, $allowedImageTypes)) {
+                return 'image';
+            }
+        } elseif ($mimeType === 'application/pdf') {
+            return 'pdf';
+        }
+        
+        return null; // Неподдерживаемый тип
+    }
+
+    /**
+     * Использовать шаблон для настройки параметров
+     * 
+     * @param int|string $template ID шаблона или его название
+     * @return self
+     * @throws \InvalidArgumentException Если шаблон не найден
+     */
     public function useTemplate($template): self
     {
         // Поиск шаблона по ID или имени
@@ -139,6 +294,14 @@ class LorService
      |  EXECUTION METHODS
      |------------------------------------------------------------------- */
 
+    /**
+     * Выполнить запрос к OpenAI API
+     * 
+     * Основной метод для отправки запроса и получения ответа.
+     * Обрабатывает function calls, ошибки API и логирование.
+     * 
+     * @return Result Результат выполнения запроса
+     */
     public function execute(): Result
     {
         lor_debug("LorService::execute() - INIT model = {$this->model}, externalKey = {$this->externalKey}");
@@ -241,6 +404,14 @@ class LorService
      |  PRIVATE METHODS
      |------------------------------------------------------------------- */
 
+    /**
+     * Построить данные запроса для OpenAI API
+     * 
+     * Формирует массив параметров для отправки в Responses API,
+     * включая обработку файлов, инструментов и настроек.
+     * 
+     * @return array Данные для запроса к API
+     */
     private function buildRequestData(): array
     {
         $data = [
@@ -281,19 +452,26 @@ class LorService
             }
         }
 
-        // Add attachments if present
+        // Обрабатываем вложения файлов если есть
         if (!empty($this->attachments)) {
-            // Convert attachments to proper format for Responses API
-            // Files must be in input[].content[] as {type: "input_file", file_id: "..."}
+            // Валидируем что все файлы имеют определенные типы
+            foreach ($this->attachments as $attachment) {
+                if ($attachment['type'] === null) {
+                    lor_debug("LorService::buildRequestData() - File without type: {$attachment['file_id']}");
+                    throw new \InvalidArgumentException(__("Unsupported format. Upload PDF or image (JPG/PNG/WEBP)."));
+                }
+            }
+            
+            // Конвертируем вложения в правильный формат для Responses API
             if (!empty($data['input'])) {
                 $lastIndex = count($data['input']) - 1;
                 $lastMessage = &$data['input'][$lastIndex];
                 
-                // Only modify user messages
+                // Модифицируем только пользовательские сообщения
                 if (($lastMessage['role'] ?? '') === 'user') {
                     $content = [];
                     
-                    // Add text content
+                    // Добавляем текстовое содержимое первым
                     if (isset($lastMessage['content'])) {
                         $content[] = [
                             'type' => 'input_text',
@@ -301,12 +479,28 @@ class LorService
                         ];
                     }
                     
-                    // Add file attachments
+                    // Добавляем файловые вложения с правильным типом
                     foreach ($this->attachments as $attachment) {
-                        $content[] = [
-                            'type' => 'input_file',
-                            'file_id' => $attachment['file_id']
-                        ];
+                        $fileId = $attachment['file_id'];
+                        $fileType = $attachment['type'];
+                        
+                        if ($fileType === 'image') {
+                            // Изображения отправляем как input_image
+                            $content[] = [
+                                'type' => 'input_image',
+                                'input_image' => ['file_id' => $fileId]
+                            ];
+                            lor_debug("LorService::buildRequestData() - Added image attachment: {$fileId}");
+                        } elseif ($fileType === 'pdf') {
+                            // PDF файлы отправляем как input_file
+                            $content[] = [
+                                'type' => 'input_file',
+                                'input_file' => ['file_id' => $fileId]
+                            ];
+                            lor_debug("LorService::buildRequestData() - Added PDF attachment: {$fileId}");
+                        } else {
+                            lor_debug("LorService::buildRequestData() - Unknown file type: {$fileType} for file: {$fileId}");
+                        }
                     }
                     
                     $lastMessage['content'] = $content;
@@ -323,6 +517,15 @@ class LorService
      |  FUNCTION HANDLING
      |------------------------------------------------------------------- */
 
+     /**
+      * Обработать вызовы функций (function calls)
+      * 
+      * Выполняет все function calls, полученные от AI,
+      * сохраняет результаты в базу данных и отправляет новый запрос.
+      * 
+      * @param array $toolCalls Массив вызовов функций
+      * @return array Результат нового запроса с результатами функций
+      */
      private function handleFunctionCalls(array $toolCalls): array
      {
          lor_debug("LorService::handleFunctionCalls() - Starting function calls handling");
@@ -411,18 +614,32 @@ class LorService
      }
 
      /**
-      * Handle API errors and decide on recovery strategy
+      * Обработать ошибки API и определить стратегию восстановления
+      * 
+      * Обрабатывает различные типы ошибок:
+      * - Ошибки типов файлов (неправильный формат)
+      * - Зависшие диалоги (No tool output found)
+      * - Общие ошибки API
+      * 
+      * @param array $error Массив ошибки от API
+      * @return Result Результат обработки ошибки
       */
      private function handleAPIError(array $error): Result
      {
          $message = $error['message'] ?? 'Unknown API error';
          lor_debug("LorService::handleAPIError() - API Error: {$message}");
          
+         // Проверяем на ошибки связанные с неправильным типом файла
+         if (strpos($message, 'Expected') !== false && strpos($message, '.pdf') !== false) {
+             lor_debug("LorService::handleAPIError() - PDF file type error detected");
+             return Result::failure(__("Unsupported format. Upload PDF or image (JPG/PNG/WEBP)."));
+         }
+         
          // Проверяем на ошибку "No tool output found" - диалог завис
          if (strpos($message, 'No tool output found for function call') !== false) {
              lor_debug("LorService::handleAPIError() - Conversation stuck, closing and retrying");
              
-             // Закрываем текущий диалог
+             // Закрываем текущий диалог в базе данных
              if ($this->conversationUser && $this->conversationId) {
                  $conversation = LorConversation::where('conversation_id', $this->conversationId)->first();
                  if ($conversation) {
@@ -431,7 +648,7 @@ class LorService
                  }
              }
              
-             // Сбрасываем conversation ID и повторяем запрос
+             // Сбрасываем conversation ID и повторяем запрос с новым диалогом
              $this->conversationId = null;
              lor_debug("LorService::handleAPIError() - Retrying with new conversation");
              return $this->execute();
@@ -443,6 +660,11 @@ class LorService
      
     
 
+    /**
+     * Получить существующий или создать новый диалог для пользователя
+     * 
+     * @return string|null ID диалога в OpenAI или null при ошибке
+     */
     private function getOrCreateConversation(): ?string
     {
         // Find active conversation for user
@@ -477,6 +699,12 @@ class LorService
 
     /**
      * Получить финальный input текст который отправляется в OpenAI
+     * 
+     * Формирует массив сообщений для отправки в API.
+     * В режиме диалога не добавляет системные инструкции
+     * (они уже есть в диалоге).
+     * 
+     * @return array Массив сообщений для API
      */
     public function getInputText()
     {

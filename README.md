@@ -29,6 +29,14 @@ if ($result->success) {
 
 The package supports file attachments for analysis, processing, and discussion:
 
+**Supported file types:**
+- Images: JPG, PNG, WEBP
+- Documents: PDF only
+
+**File type restrictions:**
+- Only images (JPG/PNG/WEBP) and PDF files are accepted
+- Unsupported formats will be rejected with error message
+
 #### Upload and Attach Local Files
 
 ```php
@@ -70,7 +78,10 @@ $service = new LorService($externalKey, 'Extract data from spreadsheet')
     ->execute();
 ```
 
-**Note**: When files are attached, the `file_search` tool is automatically added to enable file reading capabilities.
+**Note**: 
+- Images are sent as `input_image` type to OpenAI
+- PDF files are sent as `input_file` type to OpenAI  
+- Unsupported file formats will be rejected immediately
 
 ### Using Templates
 
