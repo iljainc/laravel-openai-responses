@@ -514,17 +514,17 @@ class LorService
                         $fileType = $attachment['type'];
                         
                         if ($fileType === 'image') {
-                            // Изображения отправляем как input_image с вложенным объектом
+                            // Изображения отправляем как input_image (плоский формат)
                             $content[] = [
                                 'type' => 'input_image',
-                                'input_image' => ['file_id' => $fileId]
+                                'file_id' => $fileId
                             ];
                             lor_debug("LorService::buildRequestData() - Added image attachment: {$fileId}");
                         } elseif ($fileType === 'pdf') {
-                            // PDF файлы отправляем как input_file с вложенным объектом
+                            // PDF файлы отправляем как input_file (плоский формат)
                             $content[] = [
                                 'type' => 'input_file',
-                                'input_file' => ['file_id' => $fileId]
+                                'file_id' => $fileId
                             ];
                             lor_debug("LorService::buildRequestData() - Added PDF attachment: {$fileId}");
                         } else {
