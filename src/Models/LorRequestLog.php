@@ -42,7 +42,7 @@ class OpenAiRequestLog extends Model
      */
     public function conversation()
     {
-        return $this->belongsTo(Conversation::class, 'conversation_id', 'conversation_id');
+        return $this->belongsTo(OpenaiConversation::class, 'conversation_id', 'conversation_id');
     }
 
 }

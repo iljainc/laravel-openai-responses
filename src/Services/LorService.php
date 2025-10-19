@@ -2,10 +2,10 @@
 
 namespace Idpromogroup\LaravelOpenaiResponses\Services;
 
-use Idpromogroup\LaravelOpenaiResponses\Models\OpenAiRequestLog;
-use Idpromogroup\LaravelOpenaiResponses\Models\OpenAiFunctionCall;
-use Idpromogroup\LaravelOpenaiResponses\Models\Conversation;
-use Idpromogroup\LaravelOpenaiResponses\Models\OpenAITemplate;
+use Idpromogroup\LaravelOpenaiResponses\Models\LorRequestLog;
+use Idpromogroup\LaravelOpenaiResponses\Models\LorFunctionCall;
+use Idpromogroup\LaravelOpenaiResponses\Models\LorConversation;
+use Idpromogroup\LaravelOpenaiResponses\Models\LorTemplate;
 use Idpromogroup\LaravelOpenaiResponses\Result;
 use Illuminate\Support\Facades\Log;
 
@@ -89,7 +89,7 @@ class OpenAIService
     /** Удобный хелпер: загрузить локальный файл и тут же прикрепить */
     public function attachLocalFile(string $absolutePath): self
     {
-        $api = app(OpenAIAPIService::class);
+        $api = app(LorApiService::class);
         $resp = $api->uploadFile($absolutePath, 'assistants');
         if (!empty($resp['id'])) {
             $this->attachments[] = ['file_id' => $resp['id']];
@@ -171,7 +171,7 @@ class OpenAIService
         }
 
         try {
-            $apiService = app(OpenAIAPIService::class);
+            $apiService = app(LorApiService::class);
             $response = $apiService->chatResponses($this->buildRequestData());
             
             $this->processService->close(json_encode($response, JSON_UNESCAPED_UNICODE), round(microtime(true) - $startTime, 2));
@@ -446,8 +446,8 @@ class OpenAIService
     private function getOrCreateConversation(): ?string
     {
         // Find active conversation for user
-        $conversation = Conversation::where('user', $this->conversationUser)
-            ->where('status', Conversation::STATUS_ACTIVE)
+        $conversation = LorConversation::where('user', $this->conversationUser)
+            ->where('status', LorConversation::STATUS_ACTIVE)
             ->first();
             
         if ($conversation) {
@@ -456,14 +456,14 @@ class OpenAIService
         
         // Create new conversation via API
         try {
-            $apiService = app(OpenAIAPIService::class);
+            $apiService = app(LorApiService::class);
             $conversationId = $apiService->createConversation($this->instructions);
             
             if ($conversationId) {
-                Conversation::create([
+                LorConversation::create([
                     'conversation_id' => $conversationId,
                     'user' => $this->conversationUser,
-                    'status' => Conversation::STATUS_ACTIVE
+                    'status' => LorConversation::STATUS_ACTIVE
                 ]);
                 
                 return $conversationId;

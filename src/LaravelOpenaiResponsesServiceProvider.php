@@ -2,8 +2,8 @@
 
 namespace Idpromogroup\LaravelOpenaiResponses;
 
-use Idpromogroup\LaravelOpenaiResponses\Services\OpenAIAPIService;
-use Idpromogroup\LaravelOpenaiResponses\Services\OpenAIService;
+use Idpromogroup\LaravelOpenaiResponses\Services\LorApiService;
+use Idpromogroup\LaravelOpenaiResponses\Services\LorService;
 use Idpromogroup\LaravelOpenaiResponses\Services\VectorStoreManagementService;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,19 +15,19 @@ class LaravelOpenaiResponsesServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Биндинг OpenAI API сервиса
-        $this->app->bind(OpenAIAPIService::class, function () {
+        $this->app->bind(LorApiService::class, function () {
             $apiKey = config('openai-responses.api_key') ?: env('OPENAI_API_KEY');
             if (empty($apiKey)) {
                 throw new \RuntimeException(
                     'Missing OpenAI API key: please set OPENAI_API_KEY in your .env file'
                 );
             }
-            return new OpenAIAPIService($apiKey);
+            return new LorApiService($apiKey);
         });
 
         // Управление векторным хранилищем
         $this->app->bind(VectorStoreManagementService::class, fn ($app) =>
-            new VectorStoreManagementService($app->make(OpenAIAPIService::class))
+            new VectorStoreManagementService($app->make(LorApiService::class))
         );
 
         $this->mergeConfigFrom(

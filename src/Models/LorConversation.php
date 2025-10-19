@@ -6,11 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Conversation extends Model
+class OpenaiConversation extends Model
 {
     use HasFactory;
-
-    protected $table = 'openai_conversations';
 
     protected $fillable = [
         'conversation_id',

@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Таблица openai_templates
-        Schema::create('openai_templates', function (Blueprint $table) {
+        // Таблица lor_templates
+        Schema::create('lor_templates', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->text('instructions')->nullable();
@@ -26,8 +26,8 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Таблица openai_template_files
-        Schema::create('openai_template_files', function (Blueprint $table) {
+        // Таблица lor_template_files
+        Schema::create('lor_template_files', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('template_id');
             $table->string('file_url');
@@ -43,11 +43,11 @@ return new class extends Migration
             $table->timestamps();
             
             $table->index('file_hash');
-            $table->foreign('template_id')->references('id')->on('openai_templates')->onDelete('cascade');
+            $table->foreign('template_id')->references('id')->on('lor_templates')->onDelete('cascade');
         });
 
-        // Таблица openai_template_logs
-        Schema::create('openai_template_logs', function (Blueprint $table) {
+        // Таблица lor_template_logs
+        Schema::create('lor_template_logs', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('project_id');
             $table->unsignedBigInteger('user_id')->nullable();
@@ -61,11 +61,11 @@ return new class extends Migration
             $table->string('openai_api_key')->nullable();
             $table->timestamps();
             
-            $table->foreign('project_id')->references('id')->on('openai_templates')->onDelete('cascade');
+            $table->foreign('project_id')->references('id')->on('lor_templates')->onDelete('cascade');
         });
 
-        // Таблица openai_conversations
-        Schema::create('openai_conversations', function (Blueprint $table) {
+        // Таблица lor_conversations
+        Schema::create('lor_conversations', function (Blueprint $table) {
             $table->id();
             $table->string('conversation_id')->unique();
             $table->string('user');
@@ -75,8 +75,8 @@ return new class extends Migration
             $table->index(['user', 'status']);
         });
 
-        // Таблица openai_request_logs
-        Schema::create('openai_request_logs', function (Blueprint $table) {
+        // Таблица lor_request_logs
+        Schema::create('lor_request_logs', function (Blueprint $table) {
             $table->id();
             $table->string('external_key');
             $table->text('request_text');
@@ -94,8 +94,8 @@ return new class extends Migration
             $table->index('conversation_id');
         });
 
-        // Таблица openai_function_calls
-        Schema::create('openai_function_calls', function (Blueprint $table) {
+        // Таблица lor_function_calls
+        Schema::create('lor_function_calls', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('request_log_id')->comment('Связь с openai_request_logs');
             $table->string('external_key');
@@ -109,7 +109,7 @@ return new class extends Migration
             
             $table->index('external_key');
             $table->index('function_name');
-            $table->foreign('request_log_id')->references('id')->on('openai_request_logs')->onDelete('cascade');
+            $table->foreign('request_log_id')->references('id')->on('lor_request_logs')->onDelete('cascade');
         });
     }
 
@@ -118,11 +118,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('openai_function_calls');
-        Schema::dropIfExists('openai_template_logs');
-        Schema::dropIfExists('openai_request_logs');
-        Schema::dropIfExists('openai_conversations');
-        Schema::dropIfExists('openai_template_files');
-        Schema::dropIfExists('openai_templates');
+        Schema::dropIfExists('lor_function_calls');
+        Schema::dropIfExists('lor_template_logs');
+        Schema::dropIfExists('lor_request_logs');
+        Schema::dropIfExists('lor_conversations');
+        Schema::dropIfExists('lor_template_files');
+        Schema::dropIfExists('lor_templates');
     }
 };

@@ -1,11 +1,11 @@
 <?php
 
-namespace Idpromogroup\LaravelOpenAIAssistants\Console\Commands;
+namespace Idpromogroup\LaravelOpenaiResponses\Console\Commands;
 
 use Illuminate\Console\Command;
-use Idpromogroup\LaravelOpenAIAssistants\Models\OpenAIAssistantProject;
-use Idpromogroup\LaravelOpenAIAssistants\Services\OpenAIAPIService;
-use Idpromogroup\LaravelOpenAIAssistants\Services\VectorStoreManagementService;
+use Idpromogroup\LaravelOpenaiResponses\Models\LorTemplate;
+use Idpromogroup\LaravelOpenaiResponses\Services\LorApiService;
+use Idpromogroup\LaravelOpenaiResponses\Services\VectorStoreManagementService;
 
 class UploadGdocsToOpenAI extends Command
 {
@@ -14,7 +14,7 @@ class UploadGdocsToOpenAI extends Command
 
     public function handle(): int
     {
-        $projects = OpenAIAssistantProject::whereNotNull('openai_assistant_id')
+        $projects = LorTemplate::whereNotNull('openai_assistant_id')
             ->get();
 
         foreach ($projects as $project) {
@@ -22,7 +22,7 @@ class UploadGdocsToOpenAI extends Command
 
             // для каждого проекта — свой ключ
             $key = $project->openai_api_key ?: config('openai-assistants.api_key');
-            $apiService = new OpenAIAPIService($key);
+            $apiService = new LorApiService($key);
             $vectorStoreSrv   = new VectorStoreManagementService($apiService);
 
             $vectorStoreSrv->manageAssistantVectorStore($project, $this);

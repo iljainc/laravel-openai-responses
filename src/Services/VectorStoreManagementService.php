@@ -1,16 +1,17 @@
 <?php
 
-namespace Idpromogroup\LaravelOpenAIAssistants\Services;
+namespace Idpromogroup\LaravelOpenaiResponses\Services;
 
-use Idpromogroup\LaravelOpenAIAssistants\Models\OpenAIAssistantProject;
+use Idpromogroup\LaravelOpenaiResponses\Models\LorTemplate;
+use Idpromogroup\LaravelOpenaiResponses\Services\LorApiService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class VectorStoreManagementService
 {
-    private OpenAIAPIService $apiService;
+    private LorApiService $apiService;
 
-    public function __construct(OpenAIAPIService $apiService)
+    public function __construct(LorApiService $apiService)
     {
         $this->apiService = $apiService;
     }
