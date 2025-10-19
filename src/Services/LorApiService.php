@@ -134,10 +134,10 @@ class LorApiService
      * Upload file to OpenAI
      * 
      * @param string $path Путь к файлу
-     * @param string $purpose Цель загрузки ('assistants' - user_data не поддерживается)
+     * @param string $purpose Цель загрузки ('user_data' для Responses API)
      * @return array|null Ответ API с информацией о загруженном файле
      */
-    public function uploadFile(string $path, string $purpose = 'assistants'): ?array
+    public function uploadFile(string $path, string $purpose = 'user_data'): ?array
     {
         try {
             // Проверяем существование файла
