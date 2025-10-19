@@ -163,17 +163,26 @@ class LorService
     }
 
     /**
-     * Прикрепить несколько файлов по ID
+     * Прикрепить несколько файлов по ID (требуется указание типов)
      * 
-     * @param array $fileIds Массив ID файлов
+     * @param array $fileIdsWithTypes Массив в формате [['file_id' => '...', 'type' => 'image|pdf'], ...]
      * @return self
+     * @throws \InvalidArgumentException Если не указан тип файла
      */
-    public function attachFileIds(array $fileIds): self
+    public function attachFileIds(array $fileIdsWithTypes): self
     {
-        foreach ($fileIds as $fid) {
+        foreach ($fileIdsWithTypes as $fileData) {
+            if (!isset($fileData['file_id']) || !isset($fileData['type'])) {
+                throw new \InvalidArgumentException("Each file must have 'file_id' and 'type' keys");
+            }
+            
+            if (!in_array($fileData['type'], ['image', 'pdf'])) {
+                throw new \InvalidArgumentException(__("Unsupported format. Upload PDF or image (JPG/PNG/WEBP)."));
+            }
+            
             $this->attachments[] = [
-                'file_id' => $fid,
-                'type' => null // Тип должен быть определен в attachFile()
+                'file_id' => $fileData['file_id'],
+                'type' => $fileData['type']
             ];
         }
         return $this;
@@ -192,6 +201,18 @@ class LorService
      */
     public function attachLocalFile(string $absolutePath): self
     {
+        // Проверяем существование файла
+        if (!file_exists($absolutePath)) {
+            lor_debug("LorService::attachLocalFile() - File not found: {$absolutePath}");
+            throw new \InvalidArgumentException("File not found: {$absolutePath}");
+        }
+        
+        // Проверяем размер файла
+        if (filesize($absolutePath) === 0) {
+            lor_debug("LorService::attachLocalFile() - Empty file: {$absolutePath}");
+            throw new \InvalidArgumentException("Empty file: {$absolutePath}");
+        }
+        
         // Определяем MIME тип файла
         $mimeType = mime_content_type($absolutePath);
         if (!$mimeType) {
@@ -233,11 +254,13 @@ class LorService
     private function getFileTypeFromMime(string $mimeType): ?string
     {
         if (str_starts_with($mimeType, 'image/')) {
-            // Разрешенные типы изображений
+            // Разрешенные типы изображений (JPG, PNG, WEBP)
+            // image/jpg иногда встречается вместо image/jpeg
             $allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
             if (in_array($mimeType, $allowedImageTypes)) {
                 return 'image';
             }
+            // Все остальные image/* (tiff, heic, gif, etc.) - отлуп
         } elseif ($mimeType === 'application/pdf') {
             return 'pdf';
         }
@@ -471,12 +494,18 @@ class LorService
                 if (($lastMessage['role'] ?? '') === 'user') {
                     $content = [];
                     
-                    // Добавляем текстовое содержимое первым
+                    // Добавляем текстовое содержимое первым (только если это строка)
                     if (isset($lastMessage['content'])) {
-                        $content[] = [
-                            'type' => 'input_text',
-                            'text' => $lastMessage['content']
-                        ];
+                        if (is_string($lastMessage['content'])) {
+                            // Обычный текстовый контент
+                            $content[] = [
+                                'type' => 'input_text',
+                                'text' => $lastMessage['content']
+                            ];
+                        } elseif (is_array($lastMessage['content'])) {
+                            // Уже структурированный контент - используем как есть
+                            $content = $lastMessage['content'];
+                        }
                     }
                     
                     // Добавляем файловые вложения с правильным типом
@@ -503,7 +532,10 @@ class LorService
                         }
                     }
                     
-                    $lastMessage['content'] = $content;
+                    // Обновляем контент только если есть файлы для добавления
+                    if (!empty($this->attachments)) {
+                        $lastMessage['content'] = $content;
+                    }
                 }
             }
         }
