@@ -229,9 +229,9 @@ class LorService
 
         lor_debug("LorService::attachLocalFile() - File: {$absolutePath}, MIME: {$mimeType}, Type: {$fileType}");
 
-        // Загружаем файл в OpenAI с purpose 'user_data'
+        // Загружаем файл в OpenAI с purpose 'assistants' (user_data не поддерживается)
         $api = app(LorApiService::class);
-        $resp = $api->uploadFile($absolutePath, 'user_data');
+        $resp = $api->uploadFile($absolutePath, 'assistants');
         
         // Добавляем файл в список вложений
         if (!empty($resp['id'])) {
@@ -521,10 +521,10 @@ class LorService
                             ];
                             lor_debug("LorService::buildRequestData() - Added image attachment: {$fileId}");
                         } elseif ($fileType === 'pdf') {
-                            // PDF файлы отправляем как input_file
+                            // PDF файлы отправляем как input_file (без вложенного объекта)
                             $content[] = [
                                 'type' => 'input_file',
-                                'input_file' => ['file_id' => $fileId]
+                                'file_id' => $fileId
                             ];
                             lor_debug("LorService::buildRequestData() - Added PDF attachment: {$fileId}");
                         } else {
