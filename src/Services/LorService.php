@@ -417,24 +417,7 @@ class LorService
                         $this->conversationId = null;
                         lor_debug("LorService::execute() - Retrying after conversation reset");
                         return $this->execute();
-                    }
-
-                    if (strpos($errorMessage, 'No tool output found for function call') !== false) {
-                        lor_debug("LorService::execute() - Conversation stuck, closing and retrying");
-                        $this->processService->close($errorBody ?? $errorMessage, $executionTime, ProcessService::STATUS_FAILED);
-
-                        if ($this->conversationUser && $this->conversationId) {
-                            $conversation = LorConversation::where('conversation_id', $this->conversationId)->first();
-                            if ($conversation) {
-                                $conversation->update(['status' => LorConversation::STATUS_CLOSED]);
-                                lor_debug("LorService::execute() - Closed stuck conversation: {$this->conversationId}");
-                            }
-                        }
-
-                        $this->conversationId = null;
-                        lor_debug("LorService::execute() - Retrying with fresh conversation");
-                        return $this->execute();
-                    }
+                    };
                 }
             }
 
