@@ -360,12 +360,7 @@ class LorService
             $apiService = app(LorApiService::class);
             $response = $apiService->chatResponses($this->buildRequestData());
             
-            $this->processService->close(json_encode($response, JSON_UNESCAPED_UNICODE), round(microtime(true) - $startTime, 2));
-            
-            // Обработка ошибок после close
-            if (isset($response['error'])) {
-                return $this->handleAPIError($response['error']);
-            }
+            $this->processService->comment('SUCCESS: responce received');
                         
             // Handle function calls if present in Responses API
             if (isset($response['output']) && is_array($response['output'])) {
@@ -374,50 +369,80 @@ class LorService
                 });
                 
                 if (!empty($functionCalls)) {
-                    lor_debug("LorService::execute() - Found " . count($functionCalls) . " function calls to handle");
+                    lor_debug("LorService::execute() - Found " . count($functionCalls) . " function calls to handle");                    
+                    $this->processService->comment('Run functions');
                     $response = $this->handleFunctionCalls($functionCalls);
                 }
             }
+            
+            $this->processService->close(json_encode($response, JSON_UNESCAPED_UNICODE), round(microtime(true) - $startTime, 2));
             
             lor_debug("LorService::execute() - Request completed");
             return Result::success($response);
             
         } catch (\Exception $e) {
-            // Проверяем если это ClientException с 400 статусом - это ответ API, а не ошибка
-            if ($e instanceof \GuzzleHttp\Exception\ClientException && $e->getCode() === 400) {
-                lor_debug("LorService::execute() - Got 400 response, treating as API response");
-                
-                if ($e->hasResponse()) {
-                    $errorBody = $e->getResponse()->getBody()->getContents();
-                    $errorJson = json_decode($errorBody, true);
-                    
-                    if ($errorJson) {
-                        lor_debug("LorService::execute() - Parsed 400 response: " . print_r($errorJson, true));
-                        
-                        // Логируем ответ с ошибкой
-                        $this->processService->close(json_encode($errorJson, JSON_UNESCAPED_UNICODE), round(microtime(true) - $startTime, 2), ProcessService::STATUS_FAILED);
-                        
-                        // Проверяем на ошибку "No tool output found" и обрабатываем
-                        if (isset($errorJson['error'])) {
-                            return $this->handleAPIError($errorJson['error']);
+            $executionTime = round(microtime(true) - $startTime, 2);
+            $errorMessage = $e->getMessage();
+            $errorBody = null;
+            $errorJson = null;
+
+            if ($e instanceof \GuzzleHttp\Exception\ClientException && $e->hasResponse()) {
+                $errorBody = $e->getResponse()->getBody()->getContents();
+                $errorJson = json_decode($errorBody, true);
+
+                if (json_last_error() === JSON_ERROR_NONE && isset($errorJson['error'])) {
+                    $errorData = $errorJson['error'];
+                    $errorMessage = $errorData['message'] ?? $errorMessage;
+                    $errorCode = $errorData['code'] ?? null;
+
+                    lor_debug("LorService::execute() - API Error ({$errorCode}): {$errorMessage}");
+
+                    if ($errorCode === 'unsupported_file_format') {
+                        $this->processService->close($errorBody ?? $errorMessage, $executionTime, ProcessService::STATUS_FAILED);
+                        return Result::failure($errorMessage);
+                    }
+
+                    if ($errorCode === 'response_expired') {
+                        lor_debug("LorService::execute() - Conversation TTL expired, nuking dialog");
+                        $this->processService->close($errorBody ?? $errorMessage, $executionTime, ProcessService::STATUS_FAILED);
+
+                        if ($this->conversationUser && $this->conversationId) {
+                            $conversation = LorConversation::where('conversation_id', $this->conversationId)->first();
+                            if ($conversation) {
+                                $conversation->update(['status' => LorConversation::STATUS_CLOSED]);
+                                lor_debug("LorService::execute() - Closed expired conversation: {$this->conversationId}");
+                            }
                         }
-                        
-                        // Возвращаем как обычный ответ
-                        return Result::success($errorJson);
+
+                        $this->conversationId = null;
+                        lor_debug("LorService::execute() - Retrying after conversation reset");
+                        return $this->execute();
+                    }
+
+                    if (strpos($errorMessage, 'No tool output found for function call') !== false) {
+                        lor_debug("LorService::execute() - Conversation stuck, closing and retrying");
+                        $this->processService->close($errorBody ?? $errorMessage, $executionTime, ProcessService::STATUS_FAILED);
+
+                        if ($this->conversationUser && $this->conversationId) {
+                            $conversation = LorConversation::where('conversation_id', $this->conversationId)->first();
+                            if ($conversation) {
+                                $conversation->update(['status' => LorConversation::STATUS_CLOSED]);
+                                lor_debug("LorService::execute() - Closed stuck conversation: {$this->conversationId}");
+                            }
+                        }
+
+                        $this->conversationId = null;
+                        lor_debug("LorService::execute() - Retrying with fresh conversation");
+                        return $this->execute();
                     }
                 }
             }
-            
-            $errorMessage = $e->getMessage();
-            
-            // Если это ClientException, извлекаем полное тело ответа
-            if ($e instanceof \GuzzleHttp\Exception\ClientException && $e->hasResponse()) {
-                $responseBody = $e->getResponse()->getBody()->getContents();
-                $errorMessage .= " | Full response: " . $responseBody;
-            }
-            
+
             Log::error("LOR: LorService::execute() failed - " . $errorMessage);
             lor_debug("LOR: LorService::execute() failed - " . $errorMessage);
+
+            $this->processService->close($errorBody ?? $errorMessage, $executionTime, ProcessService::STATUS_FAILED);
+
             return Result::failure('API Error: ' . $errorMessage);
         }
     }
@@ -643,53 +668,7 @@ class LorService
         
         $result = $this->execute();
         return $result->success ? $result->data : [];
-     }
-
-     /**
-      * Обработать ошибки API и определить стратегию восстановления
-      * 
-      * Обрабатывает различные типы ошибок:
-      * - Ошибки типов файлов (неправильный формат)
-      * - Зависшие диалоги (No tool output found)
-      * - Общие ошибки API
-      * 
-      * @param array $error Массив ошибки от API
-      * @return Result Результат обработки ошибки
-      */
-     private function handleAPIError(array $error): Result
-     {
-         $message = $error['message'] ?? 'Unknown API error';
-         lor_debug("LorService::handleAPIError() - API Error: {$message}");
-         
-         // Проверяем на ошибки связанные с неправильным типом файла
-         if (strpos($message, 'Expected') !== false && strpos($message, '.pdf') !== false) {
-             lor_debug("LorService::handleAPIError() - PDF file type error detected");
-             return Result::failure(__("Unsupported format. Upload PDF or image (JPG/PNG/WEBP)."));
-         }
-         
-         // Проверяем на ошибку "No tool output found" - диалог завис
-         if (strpos($message, 'No tool output found for function call') !== false) {
-             lor_debug("LorService::handleAPIError() - Conversation stuck, closing and retrying");
-             
-             // Закрываем текущий диалог в базе данных
-             if ($this->conversationUser && $this->conversationId) {
-                 $conversation = LorConversation::where('conversation_id', $this->conversationId)->first();
-                 if ($conversation) {
-                     $conversation->update(['status' => LorConversation::STATUS_CLOSED]);
-                     lor_debug("LorService::handleAPIError() - Closed conversation: {$this->conversationId}");
-                 }
-             }
-             
-             // Сбрасываем conversation ID и повторяем запрос с новым диалогом
-             $this->conversationId = null;
-             lor_debug("LorService::handleAPIError() - Retrying with new conversation");
-             return $this->execute();
-         }
-         
-         // Для других ошибок просто возвращаем failure
-         return Result::failure("API Error: {$message}");
-     }
-     
+     }    
     
 
     /**
