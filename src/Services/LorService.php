@@ -147,48 +147,6 @@ class LorService
     }
 
     /**
-     * Прикрепить файл по ID (уже загруженный в OpenAI)
-     * 
-     * @param string $fileId ID файла в OpenAI
-     * @param string|null $fileType Тип файла ('image' или 'pdf')
-     * @return self
-     */
-    public function attachFile(string $fileId, string $fileType = null): self
-    {
-        $this->attachments[] = [
-            'file_id' => $fileId,
-            'type' => $fileType
-        ];
-        return $this;
-    }
-
-    /**
-     * Прикрепить несколько файлов по ID (требуется указание типов)
-     * 
-     * @param array $fileIdsWithTypes Массив в формате [['file_id' => '...', 'type' => 'image|pdf'], ...]
-     * @return self
-     * @throws \InvalidArgumentException Если не указан тип файла
-     */
-    public function attachFileIds(array $fileIdsWithTypes): self
-    {
-        foreach ($fileIdsWithTypes as $fileData) {
-            if (!isset($fileData['file_id']) || !isset($fileData['type'])) {
-                throw new \InvalidArgumentException("Each file must have 'file_id' and 'type' keys");
-            }
-            
-            if (!in_array($fileData['type'], ['image', 'pdf'])) {
-                throw new \InvalidArgumentException(__("Unsupported format. Upload PDF or image (JPG/PNG/WEBP)."));
-            }
-            
-            $this->attachments[] = [
-                'file_id' => $fileData['file_id'],
-                'type' => $fileData['type']
-            ];
-        }
-        return $this;
-    }
-
-    /**
      * Загрузить локальный файл в OpenAI и прикрепить его
      * 
      * Поддерживаемые форматы:

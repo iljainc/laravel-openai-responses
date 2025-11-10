@@ -55,35 +55,6 @@ class LorApiService
     }
 
     /**
-     * Submit tool outputs to OpenAI Responses API
-     */
-    public function submitToolOutputs(string $responseId, array $toolOutputs): ?array
-    {
-        lor_debug("LorApiService::submitToolOutputs() - Submitting tool outputs for response: {$responseId}");
-        lor_debug("LorApiService::submitToolOutputs() - Full URL: " . $this->baseUrl . "responses/{$responseId}/submit_tool_outputs");
-        lor_debug("LorApiService::submitToolOutputs() - Tool outputs: " . print_r($toolOutputs, true));
-        
-        $response = $this->client->post("responses/{$responseId}/submit_tool_outputs", [
-            'json' => [
-                'tool_outputs' => $toolOutputs
-            ]
-        ]);
-        
-        lor_debug("Submit tool outputs completed, status: " . $response->getStatusCode());
-
-        $body = $response->getBody()->getContents();
-        $result = json_decode($body, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            Log::error("LOR: JSON decode error in submitToolOutputs - " . json_last_error_msg() . " | Raw body: " . $body);
-            return null;
-        }
-
-        lor_debug("LorApiService::submitToolOutputs() - Full AI response: " . print_r($result, true));
-        return $result;
-    }
-
-    /**
      * Create new conversation
      */
     public function createConversation(?string $instructions = null): ?string

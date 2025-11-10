@@ -57,5 +57,12 @@ class LaravelOpenaiResponsesServiceProvider extends ServiceProvider
         if (file_exists(__DIR__ . '/helpers.php')) {
             require __DIR__ . '/helpers.php';
         }
+        
+        // Регистрация команд
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Idpromogroup\LaravelOpenaiResponses\Console\Commands\UploadGdocsToOpenAI::class,
+            ]);
+        }
     }
 }
