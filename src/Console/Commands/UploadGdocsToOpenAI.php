@@ -69,7 +69,7 @@ class UploadGdocsToOpenAI extends Command
             $apiService = new LorApiService($apiKey);
             $vectorStoreService = new VectorStoreManagementService($apiService);
             
-            $success = $vectorStoreService->execute($template);
+            $success = $vectorStoreService->execute($template, $this);
             
             return $success ? 0 : 1;
             
