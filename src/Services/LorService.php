@@ -489,9 +489,7 @@ class LorService
         if (!empty($vectorStoreIds)) {
             $fileSearchTool = [
                 'type' => 'file_search',
-                'file_search' => [
-                    'vector_store_ids' => $vectorStoreIds
-                ]
+                'vector_store_ids' => $vectorStoreIds
             ];
             
             // Добавляем file_search к существующим tools
