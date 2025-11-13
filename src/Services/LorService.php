@@ -68,17 +68,31 @@ class LorService
      * Конструктор сервиса
      * 
      * @param string $externalKey Внешний ключ для идентификации запроса
-     * @param string $message Сообщение пользователя
+     * @param string|null $message Сообщение пользователя (опционально)
      */
-    public function __construct(string $externalKey, string $message)
+    public function __construct(string $externalKey, ?string $message = null)
     {
         $this->externalKey = $externalKey;
-        $this->message = $message;
+        if ($message !== null) {
+            $this->message = $message;
+        }
     }
 
     /* --------------------------------------------------------------------
      |  BUILDER METHODS
      |------------------------------------------------------------------- */
+
+    /**
+     * Установить сообщение пользователя
+     * 
+     * @param string $message Сообщение пользователя
+     * @return self
+     */
+    public function setMessage(string $message): self
+    {
+        $this->message = $message;
+        return $this;
+    }
 
     /**
      * Установить модель OpenAI
