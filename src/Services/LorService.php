@@ -60,6 +60,9 @@ class LorService
     
     /** Массив прикрепленных файлов */
     private array $attachments = [];
+    
+    /** Используемый шаблон */
+    private ?LorTemplate $template = null;
 
     /**
      * Конструктор сервиса
@@ -260,6 +263,9 @@ class LorService
         if (!$templateModel) {
             throw new \InvalidArgumentException("Template not found: {$template}");
         }
+        
+        // Сохраняем шаблон для доступа к vector stores
+        $this->template = $templateModel;
 
         // Заполняем все свойства из шаблона
         if ($templateModel->instructions) {
@@ -459,6 +465,34 @@ class LorService
             ];
         }
 
+        // Добавляем file_search tool если есть vector store в шаблоне
+        $vectorStoreIds = $this->getVectorStoreIds();
+        if (!empty($vectorStoreIds)) {
+            $fileSearchTool = [
+                'type' => 'file_search',
+                'file_search' => [
+                    'vector_store_ids' => $vectorStoreIds
+                ]
+            ];
+            
+            // Добавляем file_search к существующим tools
+            if (empty($this->tools)) {
+                $this->tools = [$fileSearchTool];
+            } else {
+                // Проверяем нет ли уже file_search
+                $hasFileSearch = false;
+                foreach ($this->tools as $tool) {
+                    if (isset($tool['type']) && $tool['type'] === 'file_search') {
+                        $hasFileSearch = true;
+                        break;
+                    }
+                }
+                if (!$hasFileSearch) {
+                    $this->tools[] = $fileSearchTool;
+                }
+            }
+        }
+
         if (!empty($this->tools)) {
             // Ensure tools is an array of objects, not a single object
             if (is_array($this->tools) && isset($this->tools['name'])) {
@@ -638,8 +672,33 @@ class LorService
         
         $result = $this->execute();
         return $result->success ? $result->data : [];
-     }    
+    }
     
+    /**
+     * Получить vector_store_id из связанных файлов шаблона
+     * 
+     * @return array Массив vector store IDs
+     */
+    private function getVectorStoreIds(): array
+    {
+        if (!$this->template) {
+            return [];
+        }
+        
+        // Получаем уникальные vector_store_id из файлов шаблона
+        $vectorStoreIds = $this->template->templateFiles()
+            ->whereNotNull('vector_store_id')
+            ->pluck('vector_store_id')
+            ->unique()
+            ->values()
+            ->toArray();
+        
+        if (!empty($vectorStoreIds)) {
+            lor_debug("LorService::getVectorStoreIds() - Found vector stores: " . implode(', ', $vectorStoreIds));
+        }
+        
+        return $vectorStoreIds;
+    }
 
     /**
      * Получить существующий или создать новый диалог для пользователя
