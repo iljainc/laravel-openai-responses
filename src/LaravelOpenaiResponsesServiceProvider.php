@@ -58,11 +58,4 @@ class LaravelOpenaiResponsesServiceProvider extends ServiceProvider
             require __DIR__ . '/helpers.php';
         }
         
-        // Регистрация команд
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                \Idpromogroup\LaravelOpenaiResponses\Console\Commands\UploadGdocsToOpenAI::class,
-            ]);
-        }
-    }
 }
