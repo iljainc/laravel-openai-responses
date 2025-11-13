@@ -43,6 +43,9 @@ class LorService
     /** Массив инструментов (function calls) */
     private array $tools = [];
     
+    /** Формат ответа (text, json_object, json_schema) */
+    private ?string $responseFormat = null;
+    
     /** JSON схема для структурированного ответа */
     private ?array $jsonSchema = null;
     
@@ -107,6 +110,18 @@ class LorService
     public function setTools(array $tools): self
     {
         $this->tools = $tools;
+        return $this;
+    }
+
+    /**
+     * Установить формат ответа
+     * 
+     * @param string $format Формат: 'text', 'json_object', 'json_schema'
+     * @return self
+     */
+    public function setResponseFormat(string $format): self
+    {
+        $this->responseFormat = $format;
         return $this;
     }
 
@@ -261,6 +276,10 @@ class LorService
         
         if ($templateModel->temperature !== null) {
             $this->temperature = $templateModel->temperature;
+        }
+        
+        if ($templateModel->response_format) {
+            $this->setResponseFormat($templateModel->response_format);
         }
         
         if ($templateModel->json_schema) {
@@ -418,10 +437,20 @@ class LorService
             $data['conversation'] = $this->conversationId;
         }
 
-
         // Set text format for Responses API
-        if ($this->jsonSchema) {
-            $data['text'] = ['format' => $this->jsonSchema];
+        if ($this->responseFormat === 'json_schema' && $this->jsonSchema) {
+            $data['text'] = [
+                'format' => [
+                    'type' => 'json_schema',
+                    'json_schema' => $this->jsonSchema
+                ]
+            ];
+        } elseif ($this->responseFormat === 'json_object') {
+            $data['text'] = [
+                'format' => [
+                    'type' => 'json_object'
+                ]
+            ];
         } else {
             $data['text'] = [
                 'format' => [
