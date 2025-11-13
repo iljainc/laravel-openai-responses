@@ -465,10 +465,10 @@ class LorService
         // Set text format for Responses API
         if ($this->responseFormat === 'json_schema' && $this->jsonSchema) {
             $data['text'] = [
-                'format' => [
-                    'type' => 'json_schema',
-                    'json_schema' => $this->jsonSchema
-                ]
+                'format' => array_merge(
+                    ['type' => 'json_schema'],
+                    $this->jsonSchema
+                )
             ];
         } elseif ($this->responseFormat === 'json_object') {
             $data['text'] = [
