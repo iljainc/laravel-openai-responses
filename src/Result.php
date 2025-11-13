@@ -45,7 +45,7 @@ class Result
     /**
      * Получить текст ответа ассистента
      */
-    public function getAssistantMessage(): ?string
+    public function getMsg(): ?string
     {
         if (!$this->success || !$this->data) {
             return null;
