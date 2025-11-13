@@ -294,7 +294,7 @@ class LorService
             $this->tools = $templateModel->tools;
         }
         
-        if ($templateModel->temperature !== null) {
+        if (!empty($templateModel->temperature)) {
             $this->temperature = $templateModel->temperature;
         }
         
