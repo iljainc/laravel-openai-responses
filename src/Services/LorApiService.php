@@ -52,8 +52,6 @@ class LorApiService
     public function chatResponses(array $data): ?array
     {
         lor_debug("LorApiService::chatResponses() - Sending request");
-        lor_debug("LorApiService::chatResponses() - Full URL: " . $this->baseUrl . 'responses');
-        lor_debug("LorApiService::chatResponses() - Request data: " . print_r($data, true));
         $response = $this->client->post('responses', [
             'json' => $data
         ]);
