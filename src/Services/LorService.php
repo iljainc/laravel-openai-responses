@@ -28,7 +28,7 @@ class LorService
     private string $model = 'gpt-4o-mini';
     
     /** Основное сообщение пользователя */
-    private string $message;
+    private ?string $message = null;
     
     /** Сервис для обработки процессов и логирования */
     private ?ProcessService $processService = null;
@@ -324,8 +324,13 @@ class LorService
      */
     public function execute(): Result
     {
+        // Проверка что установлено либо message, либо messages
+        if (empty($this->message) && empty($this->messages)) {
+            throw new \InvalidArgumentException('Either message or messages must be set before execution');
+        }
+        
         lor_debug("LorService::execute() - INIT model = {$this->model}, externalKey = {$this->externalKey}");
-        lor_debug("LorService::execute() - Message: " . substr($this->message, 0, 100) . (strlen($this->message) > 100 ? '...' : ''));
+        lor_debug("LorService::execute() - Message: " . (!empty($this->message) ? substr($this->message, 0, 100) . (strlen($this->message) > 100 ? '...' : '') : 'using predefined messages'));
         lor_debug("LorService::execute() - Conversation user: " . ($this->conversationUser ?? 'none'));
 
         $startTime = microtime(true);
@@ -778,11 +783,13 @@ class LorService
                 ];
             }
             
-            // Add user message
-            $inputMessages[] = [
-                'role' => 'user',
-                'content' => $this->message
-            ];
+            // Add user message if set
+            if ($this->message) {
+                $inputMessages[] = [
+                    'role' => 'user',
+                    'content' => $this->message
+                ];
+            }
         }
 
         return $inputMessages;
