@@ -13,13 +13,32 @@ class LorApiService
     private Client $client;
     private string $apiKey;
     private string $baseUrl = 'https://api.openai.com/v1/';
+    private int $timeout;
 
-    public function __construct(?string $apiKey = null)
+    public function __construct(?string $apiKey = null, ?int $timeout = null)
     {
         $this->apiKey = $apiKey ?? config('openai-responses.api_key');
+        $this->timeout = $timeout ?? config('openai-responses.timeout', self::DEFAULT_TIMEOUT);
+        $this->initClient();
+    }
+    
+    /**
+     * Установить таймаут для запросов
+     */
+    public function setTimeout(int $timeout): void
+    {
+        $this->timeout = $timeout;
+        $this->initClient();
+    }
+    
+    /**
+     * Инициализировать HTTP клиент
+     */
+    private function initClient(): void
+    {
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
-            'timeout' => config('openai-responses.timeout', self::DEFAULT_TIMEOUT),
+            'timeout' => $this->timeout,
             'headers' => [
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',

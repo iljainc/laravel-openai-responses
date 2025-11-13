@@ -52,6 +52,9 @@ class LorService
     /** Температура для генерации (0.0 - 2.0) */
     private ?float $temperature = null;
     
+    /** Таймаут запроса в секундах */
+    private ?int $timeout = null;
+    
     /** Пользователь для режима диалога */
     private ?string $conversationUser = null;
     
@@ -163,6 +166,18 @@ class LorService
     public function setTemperature(float $temperature): self
     {
         $this->temperature = $temperature;
+        return $this;
+    }
+
+    /**
+     * Установить таймаут запроса
+     * 
+     * @param int $timeout Таймаут в секундах
+     * @return self
+     */
+    public function setTimeout(int $timeout): self
+    {
+        $this->timeout = $timeout;
         return $this;
     }
 
@@ -360,6 +375,12 @@ class LorService
 
         try {
             $apiService = app(LorApiService::class);
+            
+            // Установить таймаут если задан
+            if ($this->timeout !== null) {
+                $apiService->setTimeout($this->timeout);
+            }
+            
             $response = $apiService->chatResponses($this->buildRequestData());
             
             $this->processService->comment('SUCCESS: responce received');
