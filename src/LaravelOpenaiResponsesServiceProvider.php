@@ -4,6 +4,7 @@ namespace Idpromogroup\LaravelOpenaiResponses;
 
 use Idpromogroup\LaravelOpenaiResponses\Services\LorApiService;
 use Idpromogroup\LaravelOpenaiResponses\Services\LorService;
+use Idpromogroup\LaravelOpenaiResponses\Services\UsageBillingService;
 use Idpromogroup\LaravelOpenaiResponses\Services\VectorStoreManagementService;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,6 +31,8 @@ class LaravelOpenaiResponsesServiceProvider extends ServiceProvider
             new VectorStoreManagementService($app->make(LorApiService::class))
         );
 
+        $this->app->singleton(UsageBillingService::class, static fn () => new UsageBillingService());
+
         $this->mergeConfigFrom(
             __DIR__ . '/../config/openai-responses.php',
             'openai-responses'
@@ -46,6 +49,7 @@ class LaravelOpenaiResponsesServiceProvider extends ServiceProvider
         // Публикация миграций
         $this->publishes([
             __DIR__ . '/../database/migrations/2025_01_01_create_openai_responses_tables.php' => database_path('migrations/2025_01_01_create_openai_responses_tables.php'),
+            __DIR__ . '/../database/migrations/2026_05_19_000000_add_usage_billing_to_lor_request_logs.php' => database_path('migrations/2026_05_19_000000_add_usage_billing_to_lor_request_logs.php'),
         ], 'migrations');
 
         // Публикация конфига

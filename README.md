@@ -170,6 +170,25 @@ Supported file purposes:
 - `fine-tune` - for fine-tuning
 - `batch` - for batch processing
 
+## Usage and cost tracking
+
+After each successful `/v1/responses` call, token counts and an estimated **USD** `total_cost` are written to `lor_request_logs` (migration `2026_05_19_000000_add_usage_billing_to_lor_request_logs`). Prices come from `config/openai-responses.php` under `prices` (per 1M tokens; keys are model prefixes so `gpt-4o-mini-2024-07-18` matches `gpt-4o-mini`).
+
+- Disable with `OPENAI_RESPONSES_BILLING=false` or `billing.enabled` in config.
+- If no price row matches the response model, tokens are still stored and `total_cost` stays `null`.
+
+Query logs:
+
+```php
+use Idpromogroup\LaravelOpenaiResponses\Facades\Lor;
+
+$sum = Lor::usage()
+    ->forExternalKey($externalKey)
+    ->betweenDates(now()->startOfMonth(), now())
+    ->whereNotNull('total_cost')
+    ->sum('total_cost');
+```
+
 ## License
 
 MIT License

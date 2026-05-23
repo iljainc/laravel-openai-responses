@@ -382,9 +382,26 @@ class LorService
             }
             
             $response = $apiService->chatResponses($this->buildRequestData());
-            
+
+            if ($response === null) {
+                $executionTime = round(microtime(true) - $startTime, 2);
+                $this->processService->close('Invalid or empty JSON from OpenAI', $executionTime, ProcessService::STATUS_FAILED);
+                $this->processService->comment('FAILED: Invalid API response body');
+                return Result::failure('Invalid response from OpenAI API');
+            }
+
+            try {
+                app(UsageBillingService::class)->record(
+                    $this->processService->responseLog,
+                    $response,
+                    $this->model
+                );
+            } catch (\Throwable $e) {
+                Log::warning('LOR: usage billing skipped', ['error' => $e->getMessage()]);
+            }
+
             $this->processService->comment('SUCCESS: responce received');
-                        
+
             // Handle function calls if present in Responses API
             if (isset($response['output']) && is_array($response['output'])) {
                 $functionCalls = array_filter($response['output'], function($item) {

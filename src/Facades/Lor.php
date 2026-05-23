@@ -11,6 +11,14 @@ class Lor extends Facade
         return \Idpromogroup\LaravelOpenaiResponses\Services\LorService::class;
     }
 
+    /**
+     * Запросы к логам с полями usage/стоимости (scopes: forExternalKey, betweenDates, withBilling).
+     */
+    public static function usage(): \Illuminate\Database\Eloquent\Builder
+    {
+        return \Idpromogroup\LaravelOpenaiResponses\Models\LorRequestLog::query();
+    }
+
     protected static function vectorStoreService()
     {
         return app(\Idpromogroup\LaravelOpenaiResponses\Services\VectorStoreManagementService::class);
