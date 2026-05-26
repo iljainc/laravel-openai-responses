@@ -39,8 +39,8 @@ class UsageBillingService
             lor_debug("UsageBillingService::record() — нет цен в конфиге для модели: {$model}");
         }
 
-        $totalCost = $priceRow !== null
-            ? $this->computeCost($normalized, $priceRow)
+        $costs = $priceRow !== null
+            ? $this->computeCostBreakdown($normalized, $priceRow)
             : null;
 
         try {
@@ -50,7 +50,10 @@ class UsageBillingService
                 'cached_input_tokens' => $normalized['cached_input_tokens'],
                 'output_tokens' => $normalized['output_tokens'],
                 'reasoning_tokens' => $normalized['reasoning_tokens'],
-                'total_cost' => $totalCost,
+                'input_cost' => $costs['input_cost'] ?? null,
+                'cached_input_cost' => $costs['cached_input_cost'] ?? null,
+                'output_cost' => $costs['output_cost'] ?? null,
+                'total_cost' => $costs['total_cost'] ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::warning('LOR: UsageBillingService::record() failed', [
@@ -138,15 +141,21 @@ class UsageBillingService
     /**
      * @param  array{input_tokens:int,cached_input_tokens:int,output_tokens:int,reasoning_tokens:int}  $u
      * @param  array{input:float,cached_input:float,output:float}  $p
+     * @return array{input_cost:float,cached_input_cost:float,output_cost:float,total_cost:float}
      */
-    private function computeCost(array $u, array $p): float
+    private function computeCostBreakdown(array $u, array $p): array
     {
         $nonCached = max(0, $u['input_tokens'] - $u['cached_input_tokens']);
 
-        $cost = ($nonCached / 1_000_000) * $p['input']
-            + ($u['cached_input_tokens'] / 1_000_000) * $p['cached_input']
-            + ($u['output_tokens'] / 1_000_000) * $p['output'];
+        $inputCost = round(($nonCached / 1_000_000) * $p['input'], 8);
+        $cachedInputCost = round(($u['cached_input_tokens'] / 1_000_000) * $p['cached_input'], 8);
+        $outputCost = round(($u['output_tokens'] / 1_000_000) * $p['output'], 8);
 
-        return round($cost, 8);
+        return [
+            'input_cost' => $inputCost,
+            'cached_input_cost' => $cachedInputCost,
+            'output_cost' => $outputCost,
+            'total_cost' => round($inputCost + $cachedInputCost + $outputCost, 8),
+        ];
     }
 }

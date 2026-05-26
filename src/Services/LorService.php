@@ -349,39 +349,47 @@ class LorService
         lor_debug("LorService::execute() - Conversation user: " . ($this->conversationUser ?? 'none'));
 
         $startTime = microtime(true);
-        
+
         $this->processService = app(ProcessService::class);
-        if (!$this->processService->init($this->externalKey, $this->getInputText())) {
-            return Result::status('Already in work');
-        }
-        
-        // Handle conversation mode after init
+
         if ($this->conversationUser) {
             lor_debug("LorService::execute() - Creating/getting conversation for user: {$this->conversationUser}");
             $this->conversationId = $this->getOrCreateConversation();
             if (!$this->conversationId) {
                 lor_debug("LorService::execute() - FAILED to create conversation");
+                $requestData = $this->buildRequestData();
+                if (!$this->processService->init($this->externalKey, $requestData)) {
+                    return Result::status('Already in work');
+                }
                 $this->processService->responseLog->update([
                     'status' => ProcessService::STATUS_FAILED,
                 ]);
                 $this->processService->comment('FAILED: Cannot create conversation');
                 return Result::failure('Failed to create conversation');
             }
-            
+
             lor_debug("LorService::execute() - Using conversation ID: {$this->conversationId}");
-            // Add conversation_id to existing log
+        }
+
+        $requestData = $this->buildRequestData();
+
+        if (!$this->processService->init($this->externalKey, $requestData)) {
+            return Result::status('Already in work');
+        }
+
+        if ($this->conversationId) {
             $this->processService->responseLog->update(['conversation_id' => $this->conversationId]);
         }
 
         try {
             $apiService = app(LorApiService::class);
-            
+
             // Установить таймаут если задан
             if ($this->timeout !== null) {
                 $apiService->setTimeout($this->timeout);
             }
-            
-            $response = $apiService->chatResponses($this->buildRequestData());
+
+            $response = $apiService->chatResponses($requestData);
 
             if ($response === null) {
                 $executionTime = round(microtime(true) - $startTime, 2);

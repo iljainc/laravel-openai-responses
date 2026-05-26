@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Сервис для отслеживания процессов обработки ответов OpenAI.
- * Уникальность процесса определяется PID + время запуска.
- * Внешний ключ объединяет channel + user_id + msg_id.
+ * Параллельность: один активный процесс на external_key + request_text (payload в OpenAI).
  */
 class ProcessService
 {
@@ -23,30 +22,27 @@ class ProcessService
     private $lockFp = null;
 
     /**
-     * Инициализация процесса - сначала создаем запись, потом разбираемся с хуйней
+     * @param  array|string  $requestText  Полный payload для OpenAI (→ request_text и ключ lock)
      */
     public function init(string $externalKey, $requestText): bool
     {
-        // Получаем PID сразу нахуй
         $pid = getmypid();
-        
-        // Если массив - упаковываем в JSON
+
         if (is_array($requestText)) {
-            $requestText = json_encode($requestText, JSON_UNESCAPED_UNICODE);
+            $requestTextJson = json_encode($requestText, JSON_UNESCAPED_UNICODE);
+        } else {
+            $requestTextJson = $requestText;
         }
-        
-        // СНАЧАЛА НАХУЙ создаем запись в любом случае со всеми данными
+
         $this->responseLog = LorRequestLog::create([
             'external_key' => $externalKey,
-            'request_text' => $requestText,
+            'request_text' => $requestTextJson,
             'status' => self::STATUS_PENDING,
             'pid' => $pid,
             'process_start_time' => null,
         ]);
 
-        // File lock для проверки реальной активности скрипта (не воркера)
-        // Один lock-файл на один external_key (channel+user_id+msg_id)
-        $lockFile = storage_path('app/temp/openai_lock_' . md5($externalKey));
+        $lockFile = storage_path('app/temp/openai_lock_' . md5($externalKey . '|' . $requestTextJson));
         $lockDir = dirname($lockFile);
         if (!is_dir($lockDir)) {
             mkdir($lockDir, 0755, true);

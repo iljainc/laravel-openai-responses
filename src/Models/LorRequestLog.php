@@ -27,6 +27,9 @@ class LorRequestLog extends Model
         'cached_input_tokens',
         'output_tokens',
         'reasoning_tokens',
+        'input_cost',
+        'cached_input_cost',
+        'output_cost',
         'total_cost',
     ];
 
@@ -39,6 +42,9 @@ class LorRequestLog extends Model
         'cached_input_tokens' => 'integer',
         'output_tokens' => 'integer',
         'reasoning_tokens' => 'integer',
+        'input_cost' => 'decimal:8',
+        'cached_input_cost' => 'decimal:8',
+        'output_cost' => 'decimal:8',
         'total_cost' => 'decimal:8',
     ];
 

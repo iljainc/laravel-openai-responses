@@ -50,6 +50,7 @@ class LaravelOpenaiResponsesServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../database/migrations/2025_01_01_create_openai_responses_tables.php' => database_path('migrations/2025_01_01_create_openai_responses_tables.php'),
             __DIR__ . '/../database/migrations/2026_05_19_000000_add_usage_billing_to_lor_request_logs.php' => database_path('migrations/2026_05_19_000000_add_usage_billing_to_lor_request_logs.php'),
+            __DIR__ . '/../database/migrations/2026_05_24_000000_add_cost_breakdown_to_lor_request_logs.php' => database_path('migrations/2026_05_24_000000_add_cost_breakdown_to_lor_request_logs.php'),
         ], 'migrations');
 
         // Публикация конфига

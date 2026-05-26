@@ -172,10 +172,10 @@ Supported file purposes:
 
 ## Usage and cost tracking
 
-After each successful `/v1/responses` call, token counts and an estimated **USD** `total_cost` are written to `lor_request_logs` (migration `2026_05_19_000000_add_usage_billing_to_lor_request_logs`). Prices come from `config/openai-responses.php` under `prices` (per 1M tokens; keys are model prefixes so `gpt-4o-mini-2024-07-18` matches `gpt-4o-mini`).
+After each successful `/v1/responses` call, token counts and estimated **USD** costs are written to `lor_request_logs`: `input_cost`, `cached_input_cost`, `output_cost`, `total_cost` (migrations `2026_05_19_*`, `2026_05_24_*`). Prices come from `config/openai-responses.php` under `prices` (per 1M tokens; keys are model prefixes so `gpt-4o-mini-2024-07-18` matches `gpt-4o-mini`).
 
 - Disable with `OPENAI_RESPONSES_BILLING=false` or `billing.enabled` in config.
-- If no price row matches the response model, tokens are still stored and `total_cost` stays `null`.
+- If no price row matches the response model, tokens are still stored and cost columns stay `null`.
 
 Query logs:
 
