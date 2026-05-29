@@ -177,6 +177,16 @@ After each successful `/v1/responses` call, token counts and estimated **USD** c
 - Disable with `OPENAI_RESPONSES_BILLING=false` or `billing.enabled` in config.
 - If no price row matches the response model, tokens are still stored and cost columns stay `null`.
 
+Billing context (optional, all nullable for backward compatibility):
+
+```php
+$service->setBillingContext(billingSourceCode: 0, billingUser: 42) // codes defined by host app
+    ->setApiKey($userOpenAiKey) // optional; default: template → config
+    ->execute();
+```
+
+Stored on each log row: `billing_source_code`, `billing_user`, `api_key_hash` (sha256 of the key used, not the secret).
+
 Query logs:
 
 ```php

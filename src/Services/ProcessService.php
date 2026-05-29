@@ -23,8 +23,9 @@ class ProcessService
 
     /**
      * @param  array|string  $requestText  Полный payload для OpenAI (→ request_text и ключ lock)
+     * @param  array<string, mixed>  $logAttributes  Доп. поля lor_request_logs при создании
      */
-    public function init(string $externalKey, $requestText): bool
+    public function init(string $externalKey, $requestText, array $logAttributes = []): bool
     {
         $pid = getmypid();
 
@@ -34,13 +35,13 @@ class ProcessService
             $requestTextJson = $requestText;
         }
 
-        $this->responseLog = LorRequestLog::create([
+        $this->responseLog = LorRequestLog::create(array_merge([
             'external_key' => $externalKey,
             'request_text' => $requestTextJson,
             'status' => self::STATUS_PENDING,
             'pid' => $pid,
             'process_start_time' => null,
-        ]);
+        ], $logAttributes));
 
         $lockFile = storage_path('app/temp/openai_lock_' . md5($externalKey . '|' . $requestTextJson));
         $lockDir = dirname($lockFile);

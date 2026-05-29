@@ -31,6 +31,9 @@ class LorRequestLog extends Model
         'cached_input_cost',
         'output_cost',
         'total_cost',
+        'billing_source_code',
+        'billing_user',
+        'api_key_hash',
     ];
 
     protected $casts = [
@@ -46,6 +49,8 @@ class LorRequestLog extends Model
         'cached_input_cost' => 'decimal:8',
         'output_cost' => 'decimal:8',
         'total_cost' => 'decimal:8',
+        'billing_source_code' => 'integer',
+        'billing_user' => 'integer',
     ];
 
     // Константы для статусов
@@ -76,5 +81,15 @@ class LorRequestLog extends Model
     public function scopeWithBilling(Builder $query): Builder
     {
         return $query->whereNotNull('total_cost');
+    }
+
+    public function scopeForBillingUser(Builder $query, int $billingUser): Builder
+    {
+        return $query->where('billing_user', $billingUser);
+    }
+
+    public function scopeForBillingSourceCode(Builder $query, int $code): Builder
+    {
+        return $query->where('billing_source_code', $code);
     }
 }

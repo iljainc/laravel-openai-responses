@@ -67,6 +67,15 @@ class LorService
     /** Используемый шаблон */
     private ?LorTemplate $template = null;
 
+    /** Код источника оплаты (значения задаёт хост-приложение) */
+    private ?int $billingSourceCode = null;
+
+    /** ID пользователя в системе хоста для атрибуции расходов */
+    private ?int $billingUser = null;
+
+    /** Переопределение API-ключа для этого запроса */
+    private ?string $apiKeyOverride = null;
+
     /**
      * Конструктор сервиса
      * 
@@ -194,6 +203,34 @@ class LorService
     }
 
     /**
+     * Контекст биллинга для lor_request_logs (все поля опциональны).
+     */
+    public function setBillingContext(?int $billingSourceCode = null, ?int $billingUser = null): self
+    {
+        $this->billingSourceCode = $billingSourceCode;
+        $this->billingUser = $billingUser;
+        return $this;
+    }
+
+    /**
+     * API-ключ OpenAI для этого запроса (иначе шаблон → config).
+     */
+    public function setApiKey(string $apiKey): self
+    {
+        $this->apiKeyOverride = $apiKey;
+        return $this;
+    }
+
+    public static function hashApiKey(?string $apiKey): ?string
+    {
+        if ($apiKey === null || $apiKey === '') {
+            return null;
+        }
+
+        return hash('sha256', $apiKey);
+    }
+
+    /**
      * Загрузить локальный файл в OpenAI и прикрепить его
      * 
      * Поддерживаемые форматы:
@@ -235,7 +272,7 @@ class LorService
         lor_debug("LorService::attachLocalFile() - File: {$absolutePath}, MIME: {$mimeType}, Type: {$fileType}");
 
         // Загружаем файл в OpenAI с purpose 'user_data'
-        $api = app(LorApiService::class);
+        $api = $this->createApiService();
         $resp = $api->uploadFile($absolutePath, 'user_data');
         
         // Добавляем файл в список вложений
@@ -358,7 +395,7 @@ class LorService
             if (!$this->conversationId) {
                 lor_debug("LorService::execute() - FAILED to create conversation");
                 $requestData = $this->buildRequestData();
-                if (!$this->processService->init($this->externalKey, $requestData)) {
+                if (!$this->processService->init($this->externalKey, $requestData, $this->billingLogAttributes())) {
                     return Result::status('Already in work');
                 }
                 $this->processService->responseLog->update([
@@ -373,7 +410,7 @@ class LorService
 
         $requestData = $this->buildRequestData();
 
-        if (!$this->processService->init($this->externalKey, $requestData)) {
+        if (!$this->processService->init($this->externalKey, $requestData, $this->billingLogAttributes())) {
             return Result::status('Already in work');
         }
 
@@ -382,7 +419,7 @@ class LorService
         }
 
         try {
-            $apiService = app(LorApiService::class);
+            $apiService = $this->createApiService();
 
             // Установить таймаут если задан
             if ($this->timeout !== null) {
@@ -781,7 +818,7 @@ class LorService
         
         // Create new conversation via API
         try {
-            $apiService = app(LorApiService::class);
+            $apiService = $this->createApiService();
             $conversationId = $apiService->createConversation($this->instructions);
             
             if ($conversationId) {
@@ -837,6 +874,47 @@ class LorService
         }
 
         return $inputMessages;
+    }
+
+    private function resolveApiKey(): string
+    {
+        if ($this->apiKeyOverride !== null && $this->apiKeyOverride !== '') {
+            return $this->apiKeyOverride;
+        }
+
+        if ($this->template !== null) {
+            return $this->template->getApiKey();
+        }
+
+        return config('openai-responses.api_key') ?: (string) env('OPENAI_API_KEY', '');
+    }
+
+    private function createApiService(): LorApiService
+    {
+        return new LorApiService($this->resolveApiKey(), $this->timeout);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function billingLogAttributes(): array
+    {
+        $data = [];
+
+        if ($this->billingSourceCode !== null) {
+            $data['billing_source_code'] = $this->billingSourceCode;
+        }
+
+        if ($this->billingUser !== null) {
+            $data['billing_user'] = $this->billingUser;
+        }
+
+        $hash = self::hashApiKey($this->resolveApiKey());
+        if ($hash !== null) {
+            $data['api_key_hash'] = $hash;
+        }
+
+        return $data;
     }
 
 }

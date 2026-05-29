@@ -15,6 +15,11 @@ class LorApiService
     private string $baseUrl = 'https://api.openai.com/v1/';
     private int $timeout;
 
+    public function getApiKey(): string
+    {
+        return $this->apiKey;
+    }
+
     public function __construct(?string $apiKey = null, ?int $timeout = null)
     {
         $this->apiKey = $apiKey ?? config('openai-responses.api_key');
